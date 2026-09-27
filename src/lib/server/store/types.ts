@@ -1,6 +1,7 @@
 import type { WeekendId } from "@/lib/config";
 import type {
   GroupRecord,
+  MatchResult,
   ParticipantRecord,
   PreferenceInput,
   SubmissionRecord,
@@ -73,4 +74,8 @@ export interface Store {
   decide(groupId: string, tripId: string, weekendId: WeekendId): Promise<void>;
   /** Only after the deadline passed without everyone submitting. */
   extendDeadline(groupId: string, hours: number): Promise<string>;
+  /** True if this caller may compute the match (one at a time; stale claims expire). */
+  claimMatch(groupId: string): Promise<boolean>;
+  /** Saves the match once; returns false if one was already saved. */
+  saveMatch(groupId: string, result: MatchResult): Promise<boolean>;
 }

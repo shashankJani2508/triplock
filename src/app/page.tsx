@@ -4,9 +4,9 @@ import { Avatar, Eyebrow } from "@/components/ui";
 import { DEFAULT_PARTICIPANTS } from "@/lib/config";
 
 const STEP_COPY: Record<(typeof STEPS)[number], string> = {
-  Submit: "Everyone answers four quick questions.",
+  Submit: "Everyone answers five quick questions.",
   Track: "See who's in. Nobody sees anyone's answers.",
-  Match: "Dealbreakers veto. Overlaps rise to the top.",
+  Match: "Gemini finds the trips across India that fit everyone best.",
   Decide: "Pick from 2–3 trips that work for all.",
   Lock: "The decision is final. No reopening.",
 };
@@ -29,7 +29,7 @@ export default function Home() {
             </span>
           ))}
         </div>
-        <p className="mt-5 text-sm font-medium text-ink-soft">5 people · 4 questions · &lt;1 minute</p>
+        <p className="mt-5 text-sm font-medium text-ink-soft">5 people · 5 questions · &lt;1 minute</p>
       </section>
 
       <section className="mt-8 animate-fade-up [animation-delay:80ms]">

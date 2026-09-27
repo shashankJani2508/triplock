@@ -25,8 +25,8 @@ async function newGroup(): Promise<{ groupId: string; participantIds: string[] }
 
 function submit(groupId: string, participantId: string) {
   return db.query<{ r: { submitted: number; total: number; locked: boolean } }>(
-    "select public.submit_preferences($1, $2, $3, $4, $5, $6) as r",
-    [groupId, participantId, "10k_15k", ["2026-11-13"], ["beach"], ["no_trekking"]],
+    "select public.submit_preferences($1, $2, $3, $4, $5, $6, $7) as r",
+    [groupId, participantId, "10k_15k", ["2026-11-13"], ["beach"], ["no_trekking"], "Mumbai"],
   );
 }
 
@@ -133,7 +133,7 @@ describe("supabase/schema.sql", () => {
   it("rejects unknown answer values at the database level", async () => {
     const { groupId, participantIds } = await newGroup();
     await expect(
-      db.query("select public.submit_preferences($1, $2, 'free', $3, $4, $5)", [
+      db.query("select public.submit_preferences($1, $2, 'free', $3, $4, $5, 'Pune')", [
         groupId,
         participantIds[0],
         ["2026-11-13"],
@@ -142,7 +142,7 @@ describe("supabase/schema.sql", () => {
       ]),
     ).rejects.toThrow();
     await expect(
-      db.query("select public.submit_preferences($1, $2, '10k_15k', $3, $4, $5)", [
+      db.query("select public.submit_preferences($1, $2, '10k_15k', $3, $4, $5, 'Pune')", [
         groupId,
         participantIds[0],
         ["2026-11-13"],
@@ -198,7 +198,7 @@ describe("supabase/schema.sql", () => {
       [rows[0].id],
     );
     for (const p of people.rows) {
-      await plain.query("select public.submit_preferences($1, $2, '10k_15k', $3, $4, $5)", [
+      await plain.query("select public.submit_preferences($1, $2, '10k_15k', $3, $4, $5, 'Delhi')", [
         rows[0].id,
         p.id,
         ["2026-11-13"],
@@ -211,6 +211,40 @@ describe("supabase/schema.sql", () => {
     ]);
     expect(status.rows[0].status).toBe("locked");
     await plain.close();
+  });
+
+  it("stores each person's home city", async () => {
+    const { groupId, participantIds } = await newGroup();
+    await submit(groupId, participantIds[0]);
+    const { rows } = await db.query<{ origin_city: string }>(
+      "select origin_city from public.preference_submissions where participant_id = $1",
+      [participantIds[0]],
+    );
+    expect(rows[0].origin_city).toBe("Mumbai");
+  });
+
+  it("computes the match once: one claim at a time, first save wins", async () => {
+    const { groupId, participantIds } = await newGroup();
+    const claim = async () =>
+      (await db.query<{ r: boolean }>("select public.claim_match($1) as r", [groupId])).rows[0].r;
+    const save = async (label: string) =>
+      (await db.query<{ r: boolean }>("select public.save_match($1, $2::jsonb) as r", [
+        groupId,
+        JSON.stringify({ label }),
+      ])).rows[0].r;
+
+    expect(await claim()).toBe(false); // not locked yet
+    for (const id of participantIds) await submit(groupId, id);
+    expect(await claim()).toBe(true);
+    expect(await claim()).toBe(false); // someone is already working on it
+    expect(await save("first")).toBe(true);
+    expect(await save("second")).toBe(false);
+    const snap = await db.query<{ s: { group: { match_result: { label: string } } } }>(
+      "select public.get_group_snapshot($1) as s",
+      [groupId],
+    );
+    expect(snap.rows[0].s.group.match_result.label).toBe("first");
+    expect(await claim()).toBe(false); // already saved
   });
 
   it("rejects a participant from another group", async () => {

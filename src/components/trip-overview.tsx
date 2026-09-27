@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
 import { ArrowRight, CircleCheck, LockKeyhole } from "lucide-react";
-import { storageKeys, useStored, writeStored } from "@/lib/client/storage";
+import { storageKeys, useStored } from "@/lib/client/storage";
 import { useTrip } from "@/lib/client/use-trip";
 import type { TripView } from "@/lib/types";
 import { Shell } from "./shell";
@@ -20,10 +19,6 @@ export function TripOverview({ initial }: { initial: TripView }) {
   const meId = useStored("local", storageKeys.me(view.id));
   const me = view.participants.find((p) => p.id === meId);
 
-  useEffect(() => {
-    writeStored("local", storageKeys.lastTrip, view.id);
-  }, [view.id]);
-
   const base = `/t/${view.id}`;
 
   return (
@@ -38,7 +33,7 @@ export function TripOverview({ initial }: { initial: TripView }) {
           <NameRow view={view} />
         </div>
         <p className="mt-5 text-sm font-medium text-ink-soft">
-          {view.total} people · 4 questions · &lt;1 minute
+          {view.total} people · 5 questions · &lt;1 minute
         </p>
       </section>
 
@@ -91,9 +86,11 @@ export function TripOverview({ initial }: { initial: TripView }) {
                 <ButtonLink href={`${base}/status`} className="mt-5 w-full">
                   View group status <ArrowRight className="size-4" aria-hidden />
                 </ButtonLink>
-                <ButtonLink href={`${base}/submit`} variant="ghost" className="mt-1 w-full text-sm">
-                  Submitting for someone else?
-                </ButtonLink>
+                {view.submittedCount < view.total && (
+                  <ButtonLink href={`${base}/submit`} variant="secondary" className="mt-2 w-full">
+                    Submit as someone else
+                  </ButtonLink>
+                )}
               </Card>
             ) : (
               <div className="space-y-2 pt-2">

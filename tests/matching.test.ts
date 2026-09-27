@@ -70,8 +70,20 @@ describe("demo group (all five submit normally)", () => {
   });
 
   it("is deterministic and independent of submission order", () => {
+    const withoutPeople = (r: typeof result) => ({ ...r, options: r.options.map((o) => ({ ...o, people: [] })) });
     expect(runMatching(DEMO_LIST)).toEqual(result);
-    expect(runMatching([...DEMO_LIST].reverse())).toEqual(result);
+    expect(withoutPeople(runMatching([...DEMO_LIST].reverse()))).toEqual(withoutPeople(result));
+  });
+
+  it("says where each person stands on each option", () => {
+    const names = Object.keys(DEMO_PREFERENCES);
+    const named = runMatching(DEMO_LIST, TRIPS, names);
+    for (const o of named.options) {
+      expect(o.people.map((p) => p.name)).toEqual(names);
+      for (const p of o.people) expect(["great", "okay", "stretch"]).toContain(p.standing);
+    }
+    // Preethi is free only on 13–15 Nov, which every option uses.
+    expect(named.options[0].people.find((p) => p.name === "Preethi")!.note).not.toContain("not free");
   });
 });
 

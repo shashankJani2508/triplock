@@ -5,13 +5,11 @@ import { useState } from "react";
 import { ArrowRight, LoaderCircle, Timer } from "lucide-react";
 import { DEADLINE_HOURS, DEMO_ROLLING_DEADLINE } from "@/lib/config";
 import { api, ApiError } from "@/lib/client/api";
-import { storageKeys, useStored } from "@/lib/client/storage";
 import { DemoNote } from "./trip-bits";
-import { Button, ButtonLink, Card } from "./ui";
+import { Button, Card } from "./ui";
 
 export function CreateTrip() {
   const router = useRouter();
-  const lastTrip = useStored("local", storageKeys.lastTrip);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,11 +50,6 @@ export function CreateTrip() {
         {!busy && <ArrowRight className="size-4" aria-hidden />}
       </Button>
 
-      {lastTrip && (
-        <ButtonLink href={`/t/${lastTrip}`} variant="ghost" className="mt-2 w-full text-sm">
-          Continue your last trip
-        </ButtonLink>
-      )}
     </Card>
   );
 }

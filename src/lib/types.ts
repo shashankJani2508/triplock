@@ -17,6 +17,9 @@ export interface GroupRecord {
   locked_at: string | null;
   decided_at: string | null;
   created_at: string;
+  /** Saved once when the group locks (absent on rows created before AI matching). */
+  match_result?: MatchResult | null;
+  match_claimed_at?: string | null;
 }
 
 export interface ParticipantRecord {
@@ -31,6 +34,8 @@ export interface PreferenceInput {
   free_weekends: WeekendId[];
   destination_types: DestinationTypeId[];
   dealbreakers: DealbreakerId[];
+  /** Home city; null on submissions made before the question existed. */
+  origin_city?: string | null;
 }
 
 export interface SubmissionRecord extends PreferenceInput {
@@ -69,6 +74,15 @@ export interface Trip {
 
 export type FitTier = "strong" | "good" | "compromise";
 
+export type Standing = "great" | "okay" | "stretch";
+
+/** How one option works for one person (the brief asks for this per option). */
+export interface PersonStanding {
+  name: string;
+  standing: Standing;
+  note: string;
+}
+
 export interface ConsensusItem {
   key: "budget" | "dates" | "destination" | "dealbreakers";
   label: string;
@@ -95,6 +109,7 @@ export interface TripOption {
   compromises: string[];
   /** Letters of options this one is too close to call against. */
   evenWith: string[];
+  people: PersonStanding[];
 }
 
 export interface MatchFunnel {
@@ -106,11 +121,14 @@ export interface MatchFunnel {
 }
 
 export interface MatchResult {
+  /** "ai" = chosen by Gemini; "rules" = the built-in deterministic engine. */
+  source: "ai" | "rules";
   headline: string;
   subhead: string;
   consensus: ConsensusItem[];
   options: TripOption[];
-  funnel: MatchFunnel;
+  /** Only for the rules engine, which filters a fixed catalog. */
+  funnel?: MatchFunnel;
   /** Present only when no trip survives. */
   noOptionsReason?: string;
 }

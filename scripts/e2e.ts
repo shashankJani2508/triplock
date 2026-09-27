@@ -53,8 +53,11 @@ function body(participantId: string, name: keyof typeof DEMO_PREFERENCES) {
     freeWeekends: p.free_weekends,
     destinationTypes: p.destination_types,
     dealbreakers: p.dealbreakers,
+    originCity: p.origin_city ?? "Bengaluru",
   };
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
   console.log(`Target: ${BASE}\n`);
@@ -92,9 +95,20 @@ async function main() {
     view = v;
   }
   check(view.phase === "locked", "5/5 locks preferences automatically");
+  // The match is computed once after locking (Gemini can take a few seconds).
+  for (const until = Date.now() + 60_000; !view.results && Date.now() < until; ) {
+    await sleep(2000);
+    view = (await call("GET", `/api/groups/${id}`)).json;
+  }
+  const source = view.results?.source;
+  check(Boolean(view.results), `match computed (${source === "ai" ? "by Gemini" : "by rules"})`);
   const options = view.results?.options ?? [];
   check(options.length >= 2 && options.length <= 3, `matching returns 2–3 options (${options.map((o) => o.destination).join(", ")})`);
   check(view.results?.consensus.length === 4, "consensus covers budget, dates, destination, dealbreakers");
+  check(
+    options.every((o) => o.people.length === 5 && o.people.every((p) => (names as string[]).includes(p.name))),
+    "each option says where each person stands",
+  );
   console.log(`    “${view.results?.headline}”`);
   for (const c of view.results?.consensus ?? []) console.log(`    • ${c.label}: ${c.statement}`);
 
@@ -147,21 +161,28 @@ async function main() {
 
   // ---------------------------------------------------------------- Scenario D
   console.log("\nScenario D — dealbreakers veto trips");
-  const vetoes = new Set(Object.values(DEMO_PREFERENCES).flatMap((p) => p.dealbreakers));
-  const offending = options.filter((o) =>
-    TRIPS.find((t) => t.id === o.tripId)!.dealbreaker_conflicts.some((d) => vetoes.has(d)),
-  );
-  check(offending.length === 0, "no option triggers any submitted dealbreaker");
-  const vetoed = TRIPS.filter((t) => t.dealbreaker_conflicts.some((d) => vetoes.has(d))).map((t) => t.id);
-  check(
-    options.every((o) => !vetoed.includes(o.tripId)) && view.results!.funnel.ruledOutByDealbreakers === vetoed.length,
-    `${vetoed.length} vetoed trips removed entirely (${vetoed.join(", ")})`,
-  );
+  if (source === "rules") {
+    const vetoes = new Set(Object.values(DEMO_PREFERENCES).flatMap((p) => p.dealbreakers));
+    const offending = options.filter((o) =>
+      TRIPS.find((t) => t.id === o.tripId)!.dealbreaker_conflicts.some((d) => vetoes.has(d)),
+    );
+    check(offending.length === 0, "no option triggers any submitted dealbreaker");
+    const vetoed = TRIPS.filter((t) => t.dealbreaker_conflicts.some((d) => vetoes.has(d))).map((t) => t.id);
+    check(
+      options.every((o) => !vetoed.includes(o.tripId)) &&
+        view.results!.funnel?.ruledOutByDealbreakers === vetoed.length,
+      `${vetoed.length} vetoed trips removed entirely (${vetoed.join(", ")})`,
+    );
+  } else {
+    console.log(`    Gemini picked: ${options.map((o) => `${o.destination} (${o.tierLabel})`).join(" | ")}`);
+  }
 
   // ---------------------------------------------------------------- Scenario E
   console.log("\nScenario E — near-equal options both appear");
-  const even = options.filter((o) => o.evenWith.length > 0);
-  check(even.length >= 2, `even match flagged (${even.map((o) => `${o.letter}↔${o.evenWith.join("")}`).join(", ")})`);
+  if (source === "rules") {
+    const even = options.filter((o) => o.evenWith.length > 0);
+    check(even.length >= 2, `even match flagged (${even.map((o) => `${o.letter}↔${o.evenWith.join("")}`).join(", ")})`);
+  }
   check(!/\d+(\.\d+)?%/.test(JSON.stringify(view.results)), "no fake precision percentages");
 
   // ---------------------------------------------------------------- Scenario F

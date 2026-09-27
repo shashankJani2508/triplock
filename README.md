@@ -14,10 +14,10 @@ It is not a travel marketplace, booking platform or AI planner. It turns five pe
 
 | Step | What happens |
 | --- | --- |
-| **Submit** | Everyone answers four tap-only questions (budget, free weekends, destination type, dealbreakers) in under a minute. |
+| **Submit** | Everyone answers five quick questions (home city, budget, free weekends, destination type, dealbreakers) in under a minute. |
 | **Track** | The group sees *who* has submitted (e.g. 4/5), never *what* they said, plus a live deadline countdown. |
 | **Lock** | The 5th submission locks preferences automatically. Nobody can edit afterwards; the database rejects it. |
-| **Match** | A deterministic engine vetoes trips that hit any dealbreaker, scores the survivors on overlap and picks 2–3 distinct options. |
+| **Match** | Gemini picks 2–3 trips across India for the group, with where each person stands; a deterministic rules engine is the fallback. |
 | **Decide** | The results page shows group-level consensus ("Everyone is comfortable up to ₹15,000") and the options. One person confirms the choice. |
 | **Lock** | The decision is locked for everyone ("Decision locked · South Goa · 13–15 November"). Preferences never reopen. |
 
@@ -39,7 +39,17 @@ It is not a travel marketplace, booking platform or AI planner. It turns five pe
 
 ---
 
-## How matching works
+## Gemini matching (AI)
+
+When all five have submitted, the server asks **Gemini** (`gemini-3.5-flash-lite` by default) to pick 2–3 weekend trips **anywhere in India**. Gemini gets each person's home city, budget cap, free weekends, trip types and dealbreakers, labelled "Person 1–5" (never names). It returns structured JSON, which the app validates. The app then:
+
+- saves the result once (a database claim ensures only one Gemini call per trip), so options never change between refreshes;
+- shows each option with **where each person stands** (Great fit / Works / Stretch + a short note);
+- falls back to the deterministic rules engine below if the key is missing, Gemini fails, or the output is invalid. The results page says which one was used.
+
+The Gemini code lives in `src/lib/server/ai-match.ts`.
+
+## How matching works (rules engine / fallback)
 
 The engine lives in `src/lib/matching.ts` and is a pure function: same input, same output, with no LLM involved.
 
@@ -119,7 +129,7 @@ To run against a real database locally, copy `.env.example` to `.env.local` and 
 ## Tests
 
 ```bash
-npm test              # 26 unit + database tests (matching engine, SQL lock rules on real Postgres)
+npm test              # 30 unit + database tests (matching engine, SQL lock rules on real Postgres)
 npm run build && npm start
 npm run test:e2e      # full journey against http://localhost:3000 (Scenarios A–F + deadline, ~90s)
 ```
@@ -134,6 +144,8 @@ Storage is picked automatically: **Supabase** if its two variables are set, othe
 
 | Variable | Where | Purpose |
 | --- | --- | --- |
+| `GEMINI_API_KEY` | Server, secret | Enables Gemini matching (without it, the rules engine is used) |
+| `GEMINI_MODEL` | Server | Optional model override (default `gemini-3.5-flash-lite`) |
 | `DATABASE_URL` or `POSTGRES_URL` | Server, secret | Postgres connection string (Neon sets these automatically) |
 | `DATABASE_URL_UNPOOLED` / `POSTGRES_URL_NON_POOLING` | Build, secret | Optional direct connection, preferred for applying the schema |
 | `SUPABASE_URL` | Server | Supabase project URL (`NEXT_PUBLIC_SUPABASE_URL` is also accepted) |

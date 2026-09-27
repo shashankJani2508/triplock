@@ -102,7 +102,11 @@ export function StatusBoard({ initial }: { initial: TripView }) {
       )}
 
       <Card className="mt-6 px-5 py-2 animate-fade-up [animation-delay:120ms] sm:px-6">
-        <ParticipantList view={view} meId={meId} />
+        <ParticipantList
+          view={view}
+          meId={meId}
+          submitHref={phase === "collecting" ? (pid) => `${base}/submit?p=${pid}` : undefined}
+        />
       </Card>
 
       <p className="mt-4 flex items-center gap-2 text-sm text-muted">
@@ -112,9 +116,10 @@ export function StatusBoard({ initial }: { initial: TripView }) {
 
       {phase === "collecting" && (
         <div className="mt-6 space-y-1">
-          {!me?.submitted && (
+          {waiting.length > 0 && (
             <ButtonLink href={`${base}/submit`} className="w-full">
-              Submit my preferences <ArrowRight className="size-4" aria-hidden />
+              {me?.submitted ? "Submit as someone else" : "Submit my preferences"}{" "}
+              <ArrowRight className="size-4" aria-hidden />
             </ButtonLink>
           )}
           <div className="flex justify-center">

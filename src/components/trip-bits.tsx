@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Hourglass, Link2, Timer } from "lucide-react";
+import Link from "next/link";
+import { Check, ChevronRight, Hourglass, Link2, Timer } from "lucide-react";
 import { formatCountdown } from "@/lib/format";
 import type { TripPhase, TripView } from "@/lib/types";
 import { Avatar, Button, Pill, cx } from "./ui";
@@ -86,31 +87,65 @@ export function CopyInviteLink({ tripId }: { tripId: string }) {
   );
 }
 
-export function ParticipantList({ view, meId }: { view: TripView; meId: string | null }) {
+/**
+ * Who has submitted. When `submitHref` is given (collecting phase), each
+ * waiting person links straight to the form with their name picked, so one
+ * device can walk through everyone's turn.
+ */
+export function ParticipantList({
+  view,
+  meId,
+  submitHref,
+}: {
+  view: TripView;
+  meId: string | null;
+  submitHref?: (participantId: string) => string;
+}) {
   return (
     <ul className="divide-y divide-line">
-      {view.participants.map((p, i) => (
-        <li
-          key={p.id}
-          className="flex animate-fade-up items-center gap-3 py-3"
-          style={{ animationDelay: `${i * 50}ms` }}
-        >
-          <Avatar name={p.name} submitted={p.submitted} />
-          <span className="flex-1 font-medium">
-            {p.name}
-            {p.id === meId && <span className="ml-1.5 text-sm font-normal text-muted">(you)</span>}
-          </span>
-          {p.submitted ? (
-            <Pill tone="agree">
-              <Check className="size-3" strokeWidth={3} aria-hidden /> Submitted
-            </Pill>
-          ) : (
-            <Pill tone="wait">
-              <Hourglass className="size-3" aria-hidden /> Waiting
-            </Pill>
-          )}
-        </li>
-      ))}
+      {view.participants.map((p, i) => {
+        const content = (
+          <>
+            <Avatar name={p.name} submitted={p.submitted} />
+            <span className="flex-1 font-medium">
+              {p.name}
+              {p.id === meId && <span className="ml-1.5 text-sm font-normal text-muted">(you)</span>}
+            </span>
+            {p.submitted ? (
+              <Pill tone="agree">
+                <Check className="size-3" strokeWidth={3} aria-hidden /> Submitted
+              </Pill>
+            ) : submitHref ? (
+              <span className="inline-flex items-center gap-2">
+                <Pill tone="wait">
+                  <Hourglass className="size-3" aria-hidden /> Waiting
+                </Pill>
+                <span className="hidden text-sm font-medium text-ink sm:inline">Submit</span>
+                <ChevronRight className="size-4 text-muted" aria-hidden />
+              </span>
+            ) : (
+              <Pill tone="wait">
+                <Hourglass className="size-3" aria-hidden /> Waiting
+              </Pill>
+            )}
+          </>
+        );
+        return (
+          <li key={p.id} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
+            {!p.submitted && submitHref ? (
+              <Link
+                href={submitHref(p.id)}
+                aria-label={`Submit preferences as ${p.name}`}
+                className="-mx-2 flex items-center gap-3 rounded-xl px-2 py-3 transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-ink"
+              >
+                {content}
+              </Link>
+            ) : (
+              <div className="flex items-center gap-3 py-3">{content}</div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

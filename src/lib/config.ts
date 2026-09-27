@@ -14,8 +14,24 @@ export const DEFAULT_PARTICIPANTS = [
   "Preethi",
 ] as const;
 
-/** Trip estimates in the catalog assume everyone travels from here. */
+/** The built-in catalog's estimates assume travel from here (rules fallback). */
 export const ORIGIN_CITY = "Bengaluru";
+
+/** Quick picks for "Where are you travelling from?" (any other city can be typed). */
+export const HOME_CITIES = [
+  "Bengaluru",
+  "Mumbai",
+  "Delhi",
+  "Hyderabad",
+  "Chennai",
+  "Pune",
+  "Kolkata",
+  "Ahmedabad",
+  "Jaipur",
+  "Kochi",
+  "Chandigarh",
+  "Lucknow",
+] as const;
 
 // ---------------------------------------------------------------------------
 // Question 1 — Budget (per person, travel + stay)

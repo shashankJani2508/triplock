@@ -3,8 +3,8 @@
 import { useSyncExternalStore } from "react";
 
 /*
- * Per-device conveniences only (which name this device submitted as, the last
- * trip opened, whether the matching animation was already shown). Nothing
+ * Per-device conveniences only (which name this device submitted as, whether
+ * the matching animation was already shown). Nothing
  * that matters for the group decision is stored in the browser.
  */
 
@@ -56,6 +56,5 @@ export function useStored(which: Area, key: string): string | null {
 
 export const storageKeys = {
   me: (tripId: string) => `triplock:me:${tripId}`,
-  lastTrip: "triplock:last-trip",
   matchingSeen: (tripId: string) => `triplock:matching-seen:${tripId}`,
 };

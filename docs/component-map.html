@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Components map</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { width: 1600px; height: 1000px; position: relative; background: #fff; font-family: "Segoe UI", Arial, sans-serif; color: #1b1b1b; overflow: hidden; }
+  .title { position: absolute; left: 0; top: 0; width: 1600px; height: 70px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 600; }
+  .cell { position: absolute; }
+  .head { background: #13294b; color: #fff; font-size: 21px; font-weight: 600; display: flex; align-items: center; justify-content: center; border-right: 1px solid #2d4670; }
+  .actor { background: #13294b; color: #fff; font-size: 21px; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border-top: 1px solid #2d4670; }
+  .actor span { font-size: 16px; font-weight: 400; color: #c9d4e6; margin-top: 3px; }
+  .lane { border-top: 1px solid #e3e3e3; }
+  .box { position: absolute; width: 220px; height: 78px; border: 2px solid; border-radius: 10px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 16px; line-height: 1.35; padding: 6px 10px; }
+  .purple { border-color: #7b6fd6; background: #ecebfb; }
+  .blue { border-color: #4a86d6; background: #e3eefb; }
+  .green { border-color: #3a9a55; background: #e2f3e6; }
+  .yellow { border-color: #e0a42b; background: #fdefc9; }
+  .pink { border-color: #d0506f; background: #fbe2e8; }
+  .orange { border-color: #d9793a; background: #fbe4d3; }
+  .gray { border-color: #9a9a9a; background: #f1f1f1; }
+  svg { position: absolute; left: 0; top: 0; }
+</style>
+</head>
+<body>
+  <div class="title">Section A · Group Trip Planner (TripLock): Components Map</div>
+
+  <!-- Header row -->
+  <div class="cell head" style="left:0;top:70px;width:220px;height:60px">Actor</div>
+  <div class="cell head" style="left:220px;top:70px;width:276px;height:60px">Trigger</div>
+  <div class="cell head" style="left:496px;top:70px;width:276px;height:60px">Input</div>
+  <div class="cell head" style="left:772px;top:70px;width:276px;height:60px">Context</div>
+  <div class="cell head" style="left:1048px;top:70px;width:276px;height:60px">Processing</div>
+  <div class="cell head" style="left:1324px;top:70px;width:276px;height:60px">Output</div>
+
+  <!-- Lanes -->
+  <div class="cell actor" style="left:0;top:130px;width:220px;height:140px">Riya<span>(Coordinator)</span></div>
+  <div class="cell lane" style="left:220px;top:130px;width:1380px;height:140px;background:#f4f2fc"></div>
+  <div class="cell actor" style="left:0;top:270px;width:220px;height:140px">Friends<span>(x 4)</span></div>
+  <div class="cell lane" style="left:220px;top:270px;width:1380px;height:140px;background:#eef4fb"></div>
+  <div class="cell actor" style="left:0;top:410px;width:220px;height:140px">Trip Planner App<span>(Next.js)</span></div>
+  <div class="cell lane" style="left:220px;top:410px;width:1380px;height:140px;background:#f6f6f4"></div>
+  <div class="cell actor" style="left:0;top:550px;width:220px;height:140px">Matching Engine<span>(Rules)</span></div>
+  <div class="cell lane" style="left:220px;top:550px;width:1380px;height:140px;background:#fdf8e7"></div>
+  <div class="cell actor" style="left:0;top:690px;width:220px;height:140px">Database<span>(Neon Postgres)</span></div>
+  <div class="cell lane" style="left:220px;top:690px;width:1380px;height:140px;background:#eef7f0"></div>
+  <div class="cell actor" style="left:0;top:830px;width:220px;height:140px">Vercel<span>(Hosting)</span></div>
+  <div class="cell lane" style="left:220px;top:830px;width:1380px;height:140px;background:#fbf3ee"></div>
+
+  <!-- Arrows (drawn under the boxes) -->
+  <svg width="1600" height="1000" viewBox="0 0 1600 1000">
+    <defs>
+      <marker id="head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#333" />
+      </marker>
+    </defs>
+    <g fill="none" stroke="#333" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#head)">
+      <polyline points="358,239 358,270 634,270 634,299" />
+      <polyline points="634,379 634,760 798,760" />
+      <polyline points="910,721 910,521" />
+      <polyline points="1020,760 1186,760 1186,661" />
+      <polyline points="1296,620 1462,620 1462,521" />
+      <polyline points="1462,441 1462,241" />
+      <polyline points="1572,200 1590,200 1590,760 1574,760" />
+    </g>
+  </svg>
+
+  <!-- Boxes: left = column start + 28, top = row start + 31 -->
+  <div class="box purple" style="left:248px;top:161px">Starts a trip<br />Shares one invite link</div>
+  <div class="box blue" style="left:524px;top:301px">Open the link<br />Answer 4 tap questions</div>
+  <div class="box gray" style="left:800px;top:441px">Live status "4 / 5 in"<br />Answers stay private</div>
+  <div class="box green" style="left:800px;top:721px">Saves answers (write-once)<br />Auto-locks at 5/5</div>
+  <div class="box yellow" style="left:1076px;top:581px">Vetoes dealbreakers<br />Ranks 2–3 best trips</div>
+  <div class="box pink" style="left:1352px;top:441px">Group consensus<br />+ 2–3 options</div>
+  <div class="box orange" style="left:1352px;top:161px">Picks one trip<br />→ Decision locked</div>
+  <div class="box green" style="left:1352px;top:721px">First decision wins<br />Never reopens</div>
+  <div class="box gray" style="left:1352px;top:861px">Live at<br />triplock-sigma.vercel.app</div>
+</body>
+</html>

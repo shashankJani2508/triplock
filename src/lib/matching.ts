@@ -35,6 +35,7 @@ import type {
   ConsensusItem,
   FitTier,
   MatchResult,
+  PersonStanding,
   PreferenceInput,
   Trip,
   TripOption,
@@ -308,9 +309,10 @@ const BUDGET_STATEMENTS: Record<BudgetBandId, string> = {
   "20k_plus": "Everyone is comfortable with ₹20,000+ per person",
 };
 
-function buildConsensus(
+/** Group-level agreement. `evaluations` is null when options came from Gemini. */
+export function buildConsensus(
   profile: GroupProfile,
-  evaluations: TripEvaluation[],
+  evaluations: TripEvaluation[] | null,
   optionCount: number,
 ): ConsensusItem[] {
   const N = profile.size;
@@ -391,7 +393,7 @@ function buildConsensus(
   }
 
   // Dealbreakers
-  const ruledOut = evaluations.filter((e) => e.eliminated === "dealbreaker").length;
+  const ruledOut = evaluations?.filter((e) => e.eliminated === "dealbreaker").length ?? 0;
   if (profile.vetoes.size === 0) {
     items.push({
       key: "dealbreakers",
@@ -412,7 +414,9 @@ function buildConsensus(
         optionCount > 0
           ? "None of your options triggers a submitted dealbreaker"
           : "Every hard no was applied as a veto",
-      detail: `Ruled out ${ruledOut} ${ruledOut === 1 ? "trip" : "trips"} involving ${what}.`,
+      detail: evaluations
+        ? `Ruled out ${ruledOut} ${ruledOut === 1 ? "trip" : "trips"} involving ${what}.`
+        : `Every option avoids ${what}.`,
       status: "agree",
     });
   }
@@ -420,10 +424,28 @@ function buildConsensus(
   return items;
 }
 
+/** Where one person stands on a trip, from their own dates, budget and trip types. */
+function standingFor(p: PreferenceInput, trip: Trip, weekendId: WeekendId, name: string): PersonStanding {
+  const free = p.free_weekends.includes(weekendId);
+  const inBudget = rankOf(p.budget_band) >= rankOf(trip.estimated_cost_band);
+  const likes = trip.types.some((t) => p.destination_types.includes(t));
+  const misses = [
+    !free && "not free that weekend",
+    !inBudget && "above their budget",
+    !likes && "not their preferred kind of trip",
+  ].filter((m): m is string => Boolean(m));
+  const standing = misses.length === 0 ? "great" : misses.length === 1 && free ? "okay" : "stretch";
+  const note =
+    misses.length === 0 ? "Free that weekend, within budget, likes this kind of trip" : capitalize(joinWords(misses));
+  return { name, standing, note };
+}
+
 function describeOption(
   e: TripEvaluation,
   letter: string,
   profile: GroupProfile,
+  prefs: PreferenceInput[],
+  labels: string[],
 ): TripOption {
   const N = profile.size;
   const trip = e.trip;
@@ -475,10 +497,11 @@ function describeOption(
     highlights,
     compromises,
     evenWith: [],
+    people: prefs.map((p, i) => standingFor(p, trip, wk.id, labels[i])),
   };
 }
 
-function headlineFor(options: TripOption[]): string {
+export function headlineFor(options: TripOption[]): string {
   if (options.length === 0) return "No trip works for everyone yet";
   if (options.length === 1) return "Your group has one workable option";
   const adjective = options.every((o) => o.tier === "strong")
@@ -515,13 +538,21 @@ export function evaluateAll(prefs: PreferenceInput[], catalog: Trip[] = TRIPS) {
   return { profile, evaluations };
 }
 
-export function runMatching(prefs: PreferenceInput[], catalog: Trip[] = TRIPS): MatchResult {
+/**
+ * `labels` name each submission (same order) for the per-person view; they
+ * default to "Person 1…N" so the engine itself never needs real names.
+ */
+export function runMatching(
+  prefs: PreferenceInput[],
+  catalog: Trip[] = TRIPS,
+  labels: string[] = prefs.map((_, i) => `Person ${i + 1}`),
+): MatchResult {
   const { profile, evaluations } = evaluateAll(prefs, catalog);
   const ranked = rankViable(evaluations);
   const picks = selectOptions(ranked);
 
   const letters = ["A", "B", "C"];
-  const options = picks.map((e, i) => describeOption(e, letters[i], profile));
+  const options = picks.map((e, i) => describeOption(e, letters[i], profile, prefs, labels));
   for (let i = 0; i < picks.length; i++) {
     for (let j = 0; j < picks.length; j++) {
       if (
@@ -537,6 +568,7 @@ export function runMatching(prefs: PreferenceInput[], catalog: Trip[] = TRIPS): 
   const count = (reason: Elimination) => evaluations.filter((e) => e.eliminated === reason).length;
 
   return {
+    source: "rules",
     headline: headlineFor(options),
     subhead:
       options.length > 0

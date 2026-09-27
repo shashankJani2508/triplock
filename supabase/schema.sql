@@ -75,6 +75,14 @@ create table if not exists public.preference_submissions (
 create index if not exists preference_submissions_group_id_idx
   on public.preference_submissions (group_id);
 
+-- Added for AI matching: each person's home city, and the saved match result
+-- (computed once when the group locks, so options never change afterwards).
+alter table public.preference_submissions
+  add column if not exists origin_city text
+  check (origin_city is null or char_length(origin_city) between 2 and 60);
+alter table public.groups add column if not exists match_result jsonb;
+alter table public.groups add column if not exists match_claimed_at timestamptz;
+
 -- -----------------------------------------------------------------------------
 -- Guards (triggers)
 -- -----------------------------------------------------------------------------
@@ -210,13 +218,15 @@ $$;
 
 -- Inserts one submission and, if it was the last one, locks the group — all in
 -- one transaction. The FOR UPDATE row lock serialises concurrent submissions.
+drop function if exists public.submit_preferences(uuid, uuid, text, text[], text[], text[]);
 create or replace function public.submit_preferences(
   p_group_id          uuid,
   p_participant_id    uuid,
   p_budget_band       text,
   p_free_weekends     text[],
   p_destination_types text[],
-  p_dealbreakers      text[]
+  p_dealbreakers      text[],
+  p_origin_city       text
 )
 returns jsonb
 language plpgsql
@@ -247,10 +257,10 @@ begin
   end if;
 
   insert into public.preference_submissions
-    (participant_id, group_id, budget_band, free_weekends, destination_types, dealbreakers)
+    (participant_id, group_id, budget_band, free_weekends, destination_types, dealbreakers, origin_city)
   values
     (p_participant_id, p_group_id, p_budget_band, p_free_weekends, p_destination_types,
-     coalesce(p_dealbreakers, '{}'));
+     coalesce(p_dealbreakers, '{}'), nullif(trim(p_origin_city), ''));
 
   select count(*) into v_total from public.participants where group_id = p_group_id;
   select count(*) into v_submitted from public.preference_submissions where group_id = p_group_id;
@@ -264,6 +274,44 @@ begin
     'total', v_total,
     'locked', v_submitted >= v_total
   );
+end;
+$$;
+
+-- Only one server instance computes the match for a locked group. A claim
+-- older than 90 seconds is treated as abandoned (e.g. a crashed request).
+create or replace function public.claim_match(p_group_id uuid)
+returns boolean
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_claimed boolean;
+begin
+  update public.groups
+  set match_claimed_at = now()
+  where id = p_group_id
+    and status = 'locked'
+    and match_result is null
+    and (match_claimed_at is null or match_claimed_at < now() - interval '90 seconds')
+  returning true into v_claimed;
+  return coalesce(v_claimed, false);
+end;
+$$;
+
+-- Saves the match once; later saves are ignored so options never change.
+create or replace function public.save_match(p_group_id uuid, p_result jsonb)
+returns boolean
+language plpgsql
+set search_path = public
+as $$
+declare
+  v_saved boolean;
+begin
+  update public.groups
+  set match_result = p_result
+  where id = p_group_id and status = 'locked' and match_result is null
+  returning true into v_saved;
+  return coalesce(v_saved, false);
 end;
 $$;
 
@@ -343,7 +391,9 @@ alter table public.preference_submissions enable row level security;
 -- Nobody but the owner may call the operations directly.
 revoke all on function public.create_group(text, timestamptz, text[]) from public;
 revoke all on function public.get_group_snapshot(uuid) from public;
-revoke all on function public.submit_preferences(uuid, uuid, text, text[], text[], text[]) from public;
+revoke all on function public.submit_preferences(uuid, uuid, text, text[], text[], text[], text) from public;
+revoke all on function public.claim_match(uuid) from public;
+revoke all on function public.save_match(uuid, jsonb) from public;
 revoke all on function public.decide_trip(uuid, text, text) from public;
 revoke all on function public.extend_deadline(uuid, int) from public;
 
@@ -362,13 +412,17 @@ begin
 
     revoke all on function public.create_group(text, timestamptz, text[]) from anon, authenticated;
     revoke all on function public.get_group_snapshot(uuid) from anon, authenticated;
-    revoke all on function public.submit_preferences(uuid, uuid, text, text[], text[], text[]) from anon, authenticated;
+    revoke all on function public.submit_preferences(uuid, uuid, text, text[], text[], text[], text) from anon, authenticated;
+    revoke all on function public.claim_match(uuid) from anon, authenticated;
+    revoke all on function public.save_match(uuid, jsonb) from anon, authenticated;
     revoke all on function public.decide_trip(uuid, text, text) from anon, authenticated;
     revoke all on function public.extend_deadline(uuid, int) from anon, authenticated;
 
     grant execute on function public.create_group(text, timestamptz, text[]) to service_role;
     grant execute on function public.get_group_snapshot(uuid) to service_role;
-    grant execute on function public.submit_preferences(uuid, uuid, text, text[], text[], text[]) to service_role;
+    grant execute on function public.submit_preferences(uuid, uuid, text, text[], text[], text[], text) to service_role;
+    grant execute on function public.claim_match(uuid) to service_role;
+    grant execute on function public.save_match(uuid, jsonb) to service_role;
     grant execute on function public.decide_trip(uuid, text, text) to service_role;
     grant execute on function public.extend_deadline(uuid, int) to service_role;
   end if;

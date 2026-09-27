@@ -1,7 +1,7 @@
 import "server-only";
 import pg from "pg";
 import type { WeekendId } from "@/lib/config";
-import type { PreferenceInput } from "@/lib/types";
+import type { MatchResult, PreferenceInput } from "@/lib/types";
 import {
   STORE_ERROR_CODES,
   StoreError,
@@ -78,18 +78,30 @@ export class PostgresStore implements Store {
   }
 
   submit(groupId: string, participantId: string, prefs: PreferenceInput): Promise<SubmitResult> {
-    return this.one<SubmitResult>("select public.submit_preferences($1, $2, $3, $4, $5, $6) as r", [
+    return this.one<SubmitResult>("select public.submit_preferences($1, $2, $3, $4, $5, $6, $7) as r", [
       groupId,
       participantId,
       prefs.budget_band,
       prefs.free_weekends,
       prefs.destination_types,
       prefs.dealbreakers,
+      prefs.origin_city ?? null,
     ]);
   }
 
   async decide(groupId: string, tripId: string, weekendId: WeekendId): Promise<void> {
     await this.one<null>("select public.decide_trip($1, $2, $3) as r", [groupId, tripId, weekendId]);
+  }
+
+  async claimMatch(groupId: string): Promise<boolean> {
+    return (await this.one<boolean>("select public.claim_match($1) as r", [groupId])) === true;
+  }
+
+  async saveMatch(groupId: string, result: MatchResult): Promise<boolean> {
+    return (
+      (await this.one<boolean>("select public.save_match($1, $2::jsonb) as r", [groupId, JSON.stringify(result)])) ===
+      true
+    );
   }
 
   async extendDeadline(groupId: string, hours: number): Promise<string> {

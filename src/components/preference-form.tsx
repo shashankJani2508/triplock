@@ -9,6 +9,7 @@ import {
   Check,
   CircleCheck,
   Landmark,
+  MapPin,
   LoaderCircle,
   LockKeyhole,
   Mountain,
@@ -23,6 +24,7 @@ import {
   BUDGET_BANDS,
   DEALBREAKERS,
   DESTINATION_TYPES,
+  HOME_CITIES,
   WEEKENDS,
   budgetBand,
   destinationType,
@@ -50,7 +52,7 @@ const TYPE_ICONS: Record<DestinationTypeId, ReactNode> = {
   relaxed: <Sun className="size-5" aria-hidden />,
 };
 
-const QUESTIONS = 4;
+const QUESTIONS = 5;
 
 function toggle<T>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
@@ -121,12 +123,25 @@ function Choice({
   );
 }
 
-export function PreferenceForm({ initial }: { initial: TripView }) {
+export function PreferenceForm({
+  initial,
+  initialParticipantId = null,
+}: {
+  initial: TripView;
+  /** From ?p= — skips the name picker when that person hasn't submitted yet. */
+  initialParticipantId?: string | null;
+}) {
   const { view, phase, accept, refresh } = useTrip(initial);
   const meId = useStored("local", storageKeys.me(view.id));
+  const preset = initial.participants.some((p) => p.id === initialParticipantId && !p.submitted)
+    ? initialParticipantId
+    : null;
 
-  const [participantId, setParticipantId] = useState<string | null>(null);
-  const [step, setStep] = useState(-1); // -1 = who's submitting
+  const [participantId, setParticipantId] = useState<string | null>(preset);
+  const [step, setStep] = useState(preset ? 0 : -1); // -1 = who's submitting
+  const [city, setCity] = useState<string | null>(null);
+  const [typingCity, setTypingCity] = useState(false);
+  const [otherCity, setOtherCity] = useState("");
   const [budget, setBudget] = useState<BudgetBandId | null>(null);
   const [weekends, setWeekends] = useState<WeekendId[]>([]);
   const [types, setTypes] = useState<DestinationTypeId[]>([]);
@@ -138,6 +153,7 @@ export function PreferenceForm({ initial }: { initial: TripView }) {
   const inFlight = useRef(false);
 
   const person = view.participants.find((p) => p.id === participantId);
+  const chosenCity = (typingCity ? otherCity : (city ?? "")).trim();
   const base = `/t/${view.id}`;
 
   /** Each question starts at the top, so its title and warnings are never scrolled away. */
@@ -149,6 +165,9 @@ export function PreferenceForm({ initial }: { initial: TripView }) {
   function reset() {
     setParticipantId(null);
     setStep(-1);
+    setCity(null);
+    setTypingCity(false);
+    setOtherCity("");
     setBudget(null);
     setWeekends([]);
     setTypes([]);
@@ -160,7 +179,7 @@ export function PreferenceForm({ initial }: { initial: TripView }) {
   }
 
   async function submit() {
-    if (!participantId || !budget || inFlight.current) return;
+    if (!participantId || !budget || !chosenCity || inFlight.current) return;
     inFlight.current = true;
     setSubmitting(true);
     setError(null);
@@ -171,6 +190,7 @@ export function PreferenceForm({ initial }: { initial: TripView }) {
         freeWeekends: weekends,
         destinationTypes: types,
         dealbreakers: noDealbreakers ? [] : dealbreakers,
+        originCity: chosenCity,
       });
       writeStored("local", storageKeys.me(view.id), participantId);
       accept(next);
@@ -229,8 +249,8 @@ export function PreferenceForm({ initial }: { initial: TripView }) {
               <ButtonLink href={`${base}/status`} className="mt-5 w-full">
                 View group status <ArrowRight className="size-4" aria-hidden />
               </ButtonLink>
-              <Button variant="ghost" onClick={reset} className="mt-1 w-full text-sm">
-                Submitting for someone else on this device?
+              <Button variant="secondary" onClick={reset} className="mt-2 w-full">
+                Submit as someone else
               </Button>
             </>
           )}
@@ -321,9 +341,10 @@ export function PreferenceForm({ initial }: { initial: TripView }) {
     );
   }
 
-  // ----- The four questions ---------------------------------------------------
+  // ----- The five questions ---------------------------------------------------
 
   const canContinue = [
+    chosenCity.length >= 2,
     budget !== null,
     weekends.length > 0,
     types.length > 0,
@@ -332,6 +353,42 @@ export function PreferenceForm({ initial }: { initial: TripView }) {
 
   let body: ReactNode;
   if (step === 0) {
+    body = (
+      <Question
+        icon={<MapPin className="size-4" aria-hidden />}
+        title="Where are you travelling from?"
+        hint="Your home city, so travel time and cost are judged from where you are."
+      >
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {HOME_CITIES.map((c) => (
+            <Choice
+              key={c}
+              multi={false}
+              selected={!typingCity && city === c}
+              title={c}
+              onClick={() => {
+                setTypingCity(false);
+                setCity(c);
+                setTimeout(() => go(1), 220);
+              }}
+            />
+          ))}
+          <Choice multi={false} selected={typingCity} title="Other city" onClick={() => setTypingCity(true)} />
+        </div>
+        {typingCity && (
+          <input
+            autoFocus
+            value={otherCity}
+            onChange={(e) => setOtherCity(e.target.value)}
+            maxLength={60}
+            placeholder="Type your city"
+            aria-label="Your city"
+            className="h-12 w-full rounded-2xl border border-line bg-surface px-4 text-base outline-none focus:border-ink focus:shadow-[0_0_0_1px_var(--color-ink)]"
+          />
+        )}
+      </Question>
+    );
+  } else if (step === 1) {
     body = (
       <Question
         icon={<Wallet className="size-4" aria-hidden />}
@@ -346,13 +403,13 @@ export function PreferenceForm({ initial }: { initial: TripView }) {
             title={b.label}
             onClick={() => {
               setBudget(b.id);
-              setTimeout(() => go(1), 220);
+              setTimeout(() => go(2), 220);
             }}
           />
         ))}
       </Question>
     );
-  } else if (step === 1) {
+  } else if (step === 2) {
     body = (
       <Question
         icon={<CalendarDays className="size-4" aria-hidden />}
@@ -373,7 +430,7 @@ export function PreferenceForm({ initial }: { initial: TripView }) {
         </div>
       </Question>
     );
-  } else if (step === 2) {
+  } else if (step === 3) {
     body = (
       <Question
         icon={<Waves className="size-4" aria-hidden />}
@@ -464,7 +521,8 @@ export function PreferenceForm({ initial }: { initial: TripView }) {
 
         {isLast && canContinue && budget && (
           <p className="mt-6 text-sm text-muted">
-            <span className="font-medium text-ink">Your answers:</span> {budgetBand(budget).label} budget ·{" "}
+            <span className="font-medium text-ink">Your answers:</span> from {chosenCity} ·{" "}
+            {budgetBand(budget).label} budget ·{" "}
             {weekends.length} {plural(weekends.length, "weekend")} · {types.map((t) => destinationType(t).label).join(", ")}{" "}
             · {noDealbreakers ? "no dealbreakers" : `${dealbreakers.length} ${plural(dealbreakers.length, "hard no", "hard noes")}`}
             . Submitting locks them; they can&apos;t be edited later.

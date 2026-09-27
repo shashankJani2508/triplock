@@ -23,6 +23,7 @@ export const submissionSchema = z.strictObject({
     .min(1, "Pick at least one destination type")
     .transform(unique),
   dealbreakers: z.array(z.enum(DEALBREAKER_IDS)).transform(unique),
+  originCity: z.string().trim().min(2, "Tell us your city").max(60),
 });
 
 export const decisionSchema = z.strictObject({

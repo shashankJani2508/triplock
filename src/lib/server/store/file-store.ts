@@ -4,6 +4,7 @@ import path from "node:path";
 import type { WeekendId } from "@/lib/config";
 import type {
   GroupRecord,
+  MatchResult,
   ParticipantRecord,
   PreferenceInput,
   SubmissionRecord,
@@ -117,6 +118,7 @@ export class FileStore implements Store {
         free_weekends: [...prefs.free_weekends],
         destination_types: [...prefs.destination_types],
         dealbreakers: [...prefs.dealbreakers],
+        origin_city: prefs.origin_city?.trim() || null,
         submitted_at: at,
         locked_at: at,
       });
@@ -142,6 +144,26 @@ export class FileStore implements Store {
       group.selected_trip_id = tripId;
       group.selected_weekend = weekendId;
       group.decided_at = this.now().toISOString();
+    }, true);
+  }
+
+  claimMatch(groupId: string): Promise<boolean> {
+    return this.exclusive((data) => {
+      const now = this.now().getTime();
+      const group = data.groups.find((g) => g.id === groupId);
+      if (!group || group.status !== "locked" || group.match_result) return false;
+      if (group.match_claimed_at && Date.parse(group.match_claimed_at) > now - 90_000) return false;
+      group.match_claimed_at = new Date(now).toISOString();
+      return true;
+    }, true);
+  }
+
+  saveMatch(groupId: string, result: MatchResult): Promise<boolean> {
+    return this.exclusive((data) => {
+      const group = data.groups.find((g) => g.id === groupId);
+      if (!group || group.status !== "locked" || group.match_result) return false;
+      group.match_result = structuredClone(result);
+      return true;
     }, true);
   }
 

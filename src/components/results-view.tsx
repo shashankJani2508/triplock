@@ -21,7 +21,7 @@ import { ORIGIN_CITY } from "@/lib/config";
 import { api, ApiError } from "@/lib/client/api";
 import { storageKeys, useStored, writeStored } from "@/lib/client/storage";
 import { useTrip } from "@/lib/client/use-trip";
-import type { ConsensusItem, MatchResult, TripOption, TripView } from "@/lib/types";
+import type { ConsensusItem, MatchResult, PersonStanding, TripOption, TripView } from "@/lib/types";
 import { Notice } from "./notices";
 import { Shell } from "./shell";
 import { Button, ButtonLink, Card, Eyebrow, Pill, cx } from "./ui";
@@ -39,17 +39,27 @@ const STAGES = [
 ];
 const STAGE_MS = 520;
 
-function MatchingTransition({ onDone }: { onDone: () => void }) {
+/**
+ * Stages tick through for a moment; the last one keeps spinning until the
+ * group's options exist (Gemini can take a few seconds), then it hands over.
+ */
+function MatchingTransition({ ready, onDone }: { ready: boolean; onDone: () => void }) {
   const [stage, setStage] = useState(0);
+  const last = STAGES.length - 1;
 
   useEffect(() => {
-    const timers = STAGES.map((_, i) => setTimeout(() => setStage(i + 1), STAGE_MS * (i + 1)));
-    const end = setTimeout(onDone, STAGE_MS * STAGES.length + 450);
-    return () => {
-      timers.forEach(clearTimeout);
-      clearTimeout(end);
-    };
-  }, [onDone]);
+    const timers = STAGES.slice(0, -1).map((_, i) => setTimeout(() => setStage(i + 1), STAGE_MS * (i + 1)));
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  const shownLongEnough = stage >= last;
+  useEffect(() => {
+    if (!ready || !shownLongEnough) return;
+    const end = setTimeout(onDone, 600);
+    return () => clearTimeout(end);
+  }, [ready, shownLongEnough, onDone]);
+
+  const complete = ready && shownLongEnough;
 
   return (
     <Shell step={2}>
@@ -60,14 +70,14 @@ function MatchingTransition({ onDone }: { onDone: () => void }) {
         <h1 className="mt-6 text-2xl font-semibold tracking-tight">Finding where your group agrees…</h1>
         <ul className="mt-8 w-full max-w-xs space-y-3 text-left">
           {STAGES.map((label, i) => {
-            const done = i < stage;
-            const active = i === stage;
+            const done = i < stage || complete;
+            const active = !done && i === stage;
             return (
               <li
                 key={label}
                 className={cx(
                   "flex items-center gap-3 text-sm transition-colors duration-300",
-                  done ? "text-ink" : active ? "text-ink" : "text-muted/60",
+                  done || active ? "text-ink" : "text-muted/60",
                 )}
               >
                 {done ? (
@@ -84,6 +94,9 @@ function MatchingTransition({ onDone }: { onDone: () => void }) {
             );
           })}
         </ul>
+        {!ready && shownLongEnough && (
+          <p className="mt-6 text-sm text-muted">Comparing trips across India. This can take a few seconds.</p>
+        )}
       </div>
     </Shell>
   );
@@ -169,6 +182,31 @@ function Reasons({ items }: { items: string[] }) {
   );
 }
 
+const STANDING = {
+  great: { label: "Great fit", tone: "agree" },
+  okay: { label: "Works", tone: "neutral" },
+  stretch: { label: "Stretch", tone: "wait" },
+} as const;
+
+/** Where each person stands on one option (what the brief asks the group to see). */
+function PeopleStanding({ people }: { people?: PersonStanding[] }) {
+  if (!people?.length) return null;
+  return (
+    <div className="mt-4 border-t border-line pt-4">
+      <p className="mb-2 text-sm font-medium">Where each person stands</p>
+      <ul className="space-y-2">
+        {people.map((p) => (
+          <li key={p.name} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
+            <span className="w-20 font-medium">{p.name}</span>
+            <Pill tone={STANDING[p.standing].tone}>{STANDING[p.standing].label}</Pill>
+            <span className="basis-full text-muted sm:basis-auto">{p.note}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function OptionCard({ option, index }: { option: TripOption; index: number }) {
   return (
     <Card className="animate-fade-up p-5 sm:p-6" style={{ animationDelay: `${300 + index * 90}ms` }}>
@@ -194,6 +232,7 @@ function OptionCard({ option, index }: { option: TripOption; index: number }) {
           <Compromise items={option.compromises} />
         </div>
       )}
+      <PeopleStanding people={option.people} />
       {option.evenWith.length > 0 && (
         <p className="mt-4 inline-flex items-center gap-2 text-sm text-muted">
           <Scale className="size-4" aria-hidden />
@@ -209,8 +248,7 @@ function OptionCard({ option, index }: { option: TripOption; index: number }) {
   );
 }
 
-function funnelText(r: MatchResult): string {
-  const f = r.funnel;
+function funnelText(f: NonNullable<MatchResult["funnel"]>): string {
   const parts = [`${f.checked} trips checked`];
   if (f.ruledOutByDealbreakers) parts.push(`${f.ruledOutByDealbreakers} vetoed by dealbreakers`);
   if (f.ruledOutByBudget) parts.push(`${f.ruledOutByBudget} out of budget reach`);
@@ -381,6 +419,7 @@ function DecisionLocked({ view, note }: { view: TripView; note: string | null })
               <Reasons items={option.highlights} />
             </div>
             <Compromise items={option.compromises} />
+            <PeopleStanding people={option.people} />
           </div>
         )}
         {d.tags.length > 0 && (
@@ -438,7 +477,7 @@ export function ResultsView({ initial }: { initial: TripView }) {
 
   if (phase === "decided" && view.decision) return <DecisionLocked view={view} note={note} />;
 
-  if (phase !== "locked" || !view.results) {
+  if (phase !== "locked") {
     return (
       <Shell step={1}>
         <Notice
@@ -458,7 +497,9 @@ export function ResultsView({ initial }: { initial: TripView }) {
     );
   }
 
-  if (!seen && !finished) return <MatchingTransition onDone={onMatched} />;
+  if (!view.results || (!seen && !finished)) {
+    return <MatchingTransition ready={Boolean(view.results)} onDone={onMatched} />;
+  }
 
   const r = view.results;
 
@@ -466,11 +507,12 @@ export function ResultsView({ initial }: { initial: TripView }) {
     <Shell step={3}>
       <section className="animate-fade-up">
         <Eyebrow className="inline-flex items-center gap-1.5">
-          <LockKeyhole className="size-3" aria-hidden /> Preferences locked
+          <LockKeyhole className="size-3" aria-hidden /> Preferences locked ·{" "}
+          {r.source === "ai" ? "Matched by Gemini" : "Matched by rules"}
         </Eyebrow>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{r.headline}</h1>
         <p className="mt-3 text-muted">{r.subhead}</p>
-        <p className="mt-3 text-xs text-muted">{funnelText(r)}</p>
+        {r.funnel && <p className="mt-3 text-xs text-muted">{funnelText(r.funnel)}</p>}
       </section>
 
       <section className="mt-8">
@@ -488,7 +530,9 @@ export function ResultsView({ initial }: { initial: TripView }) {
               ))}
             </div>
             <p className="mt-3 text-xs text-muted">
-              Estimates are per person from {ORIGIN_CITY}, travel + stay. Illustrative, not live prices.
+              {r.source === "ai"
+                ? "Estimates by Gemini: per person, including travel from each home city. Illustrative, not live prices."
+                : `Estimates are per person from ${ORIGIN_CITY}, travel + stay. Illustrative, not live prices.`}
             </p>
           </section>
 

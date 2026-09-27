@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient, type PostgrestError, type SupabaseClient } from "@supabase/supabase-js";
 import type { WeekendId } from "@/lib/config";
-import type { PreferenceInput } from "@/lib/types";
+import type { MatchResult, PreferenceInput } from "@/lib/types";
 import {
   STORE_ERROR_CODES,
   StoreError,
@@ -58,6 +58,7 @@ export class SupabaseStore implements Store {
       p_free_weekends: prefs.free_weekends,
       p_destination_types: prefs.destination_types,
       p_dealbreakers: prefs.dealbreakers,
+      p_origin_city: prefs.origin_city ?? null,
     });
     if (error) throw toError(error);
     return data as SubmitResult;
@@ -70,6 +71,18 @@ export class SupabaseStore implements Store {
       p_weekend: weekendId,
     });
     if (error) throw toError(error);
+  }
+
+  async claimMatch(groupId: string): Promise<boolean> {
+    const { data, error } = await this.client.rpc("claim_match", { p_group_id: groupId });
+    if (error) throw toError(error);
+    return data === true;
+  }
+
+  async saveMatch(groupId: string, result: MatchResult): Promise<boolean> {
+    const { data, error } = await this.client.rpc("save_match", { p_group_id: groupId, p_result: result });
+    if (error) throw toError(error);
+    return data === true;
   }
 
   async extendDeadline(groupId: string, hours: number): Promise<string> {
