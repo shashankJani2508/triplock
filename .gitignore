@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local dev data store (used when Supabase env vars are absent)
+/.data
+!.env.example
+
+# local editor/agent config
+/.claude
