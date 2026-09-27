@@ -100,7 +100,8 @@ export function profileGroup(prefs: PreferenceInput[]): GroupProfile {
     for (const t of new Set(p.destination_types)) {
       typeCounts.set(t, (typeCounts.get(t) ?? 0) + 1);
     }
-    for (const d of p.dealbreakers) vetoes.add(d);
+    // Ignore retired options that may still exist in older stored answers.
+    for (const d of p.dealbreakers) if (DEALBREAKER_IDS.includes(d)) vetoes.add(d);
     budgetCeilingRank = Math.min(budgetCeilingRank, rankOf(p.budget_band));
   }
 

@@ -45,7 +45,7 @@ const post = (body?: unknown): RequestInit => ({
 
 export const api = {
   getTrip: (id: string) => request<TripView>(`/api/groups/${id}`),
-  createTrip: (deadline: string) => request<{ id: string }>("/api/groups", post({ deadline })),
+  createTrip: () => request<{ id: string }>("/api/groups", post({})),
   submit: (id: string, body: SubmissionBody) =>
     request<TripView>(`/api/groups/${id}/submissions`, post(body)),
   decide: (id: string, tripId: string) => request<TripView>(`/api/groups/${id}/decision`, post({ tripId })),

@@ -27,7 +27,7 @@ It is not a travel marketplace, booking platform or AI planner. It turns five pe
 - **No raw answers are ever shown.** The API only returns names plus a submitted/waiting flag. The matching engine receives anonymous preference arrays with no names, so its output *can't* attribute answers to people.
 - **Dealbreakers are vetoes, not negative scores.** One "No trekking" removes every trek-based trip, however much the other four like it.
 - **No fake precision.** Options are labelled *Strong group fit / Good group fit / Some compromise*, never "87.43%". Near-equal options are shown side by side and marked as an even match.
-- **The deadline is real.** The server rejects submissions after it. If it passes before everyone submits, the group can explicitly reopen collection for 24 hours; existing submissions stay locked.
+- **The deadline is real.** Preferences close 24 hours after a trip is started, and the server rejects submissions after that. If it passes before everyone submits, the group can explicitly reopen collection for 24 hours; existing submissions stay locked.
 
 ### Assumptions (easy to change in `src/lib/config.ts`)
 
@@ -79,7 +79,7 @@ The rules are enforced in the database (`supabase/schema.sql`, plain Postgres th
 ```
 src/
   app/
-    page.tsx                     Landing + start a trip (deadline picker)
+    page.tsx                     Landing + start a trip (24-hour deadline)
     t/[id]/page.tsx              Trip overview (the link friends receive)
     t/[id]/submit/page.tsx       4-question preference form
     t/[id]/status/page.tsx       Submission tracker + deadline
@@ -87,7 +87,7 @@ src/
     api/groups/...               Route handlers (create, view, submit, decide, extend)
   components/                    UI (preference form, status board, results view, …)
   lib/
-    config.ts                    Participants, answer options, weekends, deadlines
+    config.ts                    Participants, answer options, weekends, 24h deadline
     catalog.ts                   19 curated trips with structured attributes
     matching.ts                  Deterministic matching engine
     validation.ts                Request validation (zod)

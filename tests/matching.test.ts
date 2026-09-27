@@ -28,10 +28,9 @@ describe("trip catalog", () => {
     }
   });
 
-  it("flags expensive and long-travel trips consistently", () => {
+  it("flags expensive trips consistently", () => {
     for (const t of TRIPS) {
       expect(t.estimated_cost_band === "20k_plus").toBe(t.dealbreaker_conflicts.includes("no_expensive"));
-      expect(t.travel === "long").toBe(t.dealbreaker_conflicts.includes("no_long_travel"));
     }
   });
 });
@@ -103,13 +102,26 @@ describe("Scenario D — a dealbreaker is a veto, not a negative score", () => {
   });
 
   it("never offers any trip that conflicts with any submitted dealbreaker", () => {
-    const prefs = DEMO_LIST.map((p, i) => ({ ...p, dealbreakers: [DEALBREAKER_IDS[i]] }));
+    const prefs = DEMO_LIST.map((p, i) => ({ ...p, dealbreakers: [DEALBREAKER_IDS[i % DEALBREAKER_IDS.length]] }));
     const vetoes = new Set(prefs.flatMap((p) => p.dealbreakers));
     const result = runMatching(prefs);
     for (const o of result.options) {
       const trip = TRIPS.find((t) => t.id === o.tripId)!;
       expect(trip.dealbreaker_conflicts.some((d) => vetoes.has(d))).toBe(false);
     }
+  });
+});
+
+describe("retired dealbreakers in older stored answers", () => {
+  it("are ignored instead of crashing or vetoing", () => {
+    const legacy = DEMO_LIST.map((p) => ({ ...p, dealbreakers: [] as PreferenceInput["dealbreakers"] }));
+    legacy[0] = { ...legacy[0], dealbreakers: ["no_extreme_adventure" as never] };
+    const withLegacy = runMatching(legacy);
+    const without = runMatching(legacy.map((p) => ({ ...p, dealbreakers: [] })));
+    expect(withLegacy.options).toEqual(without.options);
+    expect(withLegacy.consensus.find((c) => c.key === "dealbreakers")!.statement).toBe(
+      "No dealbreakers were submitted",
+    );
   });
 });
 

@@ -58,8 +58,15 @@ function body(participantId: string, name: keyof typeof DEMO_PREFERENCES) {
 async function main() {
   console.log(`Target: ${BASE}\n`);
 
+  // ---------------------------------------------------------------- Default deadline
+  console.log("Default deadline");
+  const plain = await call("POST", "/api/groups", {});
+  const plainView = (await call("GET", `/api/groups/${(plain.json as unknown as { id: string }).id}`)).json;
+  const hoursLeft = (Date.parse(plainView.deadline) - Date.now()) / 3_600_000;
+  check(plain.status === 201 && hoursLeft > 23.9 && hoursLeft <= 24, `new trip closes in 24 hours (${hoursLeft.toFixed(2)}h)`);
+
   // ---------------------------------------------------------------- Scenario A
-  console.log("Scenario A — all five submit normally");
+  console.log("\nScenario A — all five submit normally");
   const id = await createTrip();
   let view = (await call("GET", `/api/groups/${id}`)).json;
   check(view.phase === "collecting" && view.submittedCount === 0 && view.total === 5, "starts at 0/5, collecting");

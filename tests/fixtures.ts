@@ -24,7 +24,7 @@ export const DEMO_PREFERENCES: Record<string, PreferenceInput> = {
     budget_band: "20k_plus",
     free_weekends: ["2026-11-13", "2026-11-20", "2026-11-27"],
     destination_types: ["culture", "relaxed"],
-    dealbreakers: ["no_extreme_adventure"],
+    dealbreakers: [],
   },
   Preethi: {
     budget_band: "10k_15k",

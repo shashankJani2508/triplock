@@ -59,6 +59,8 @@ create table if not exists public.preference_submissions (
     cardinality(destination_types) >= 1
     and destination_types <@ array['beach', 'mountains', 'nature', 'culture', 'adventure', 'relaxed']
   ),
+  -- Includes retired options so older submissions stay valid; the app only
+  -- offers the current ones (src/lib/config.ts).
   dealbreakers      text[] not null default '{}' check (
     dealbreakers <@ array['no_trekking', 'no_nightlife', 'no_long_travel', 'no_extreme_adventure', 'no_expensive']
   ),

@@ -10,7 +10,8 @@ const unique = <T>(values: T[]) => [...new Set(values)];
 
 export const createTripSchema = z.strictObject({
   name: z.string().trim().min(1).max(60).optional(),
-  deadline: z.iso.datetime(),
+  /** Optional override (used by tests); defaults to DEADLINE_HOURS from now. */
+  deadline: z.iso.datetime().optional(),
 });
 
 export const submissionSchema = z.strictObject({

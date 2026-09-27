@@ -143,7 +143,7 @@ export const TRIPS: Trip[] = [
     travel_note: "Most of a day by road",
     available_weekends: ["2026-11-06", "2026-11-13", "2026-11-20"],
     tags: ["Tea hills", "Misty viewpoints", "Plantation walks"],
-    dealbreaker_conflicts: ["no_long_travel"],
+    dealbreaker_conflicts: [],
     description: "Rolling tea hills and misty viewpoints at the end of a long drive.",
   },
   {
@@ -182,7 +182,7 @@ export const TRIPS: Trip[] = [
     travel_note: "Flight + transfer, most of a day",
     available_weekends: ALL,
     tags: ["Lake palaces", "Old city", "Rooftop dinners"],
-    dealbreaker_conflicts: ["no_long_travel"],
+    dealbreaker_conflicts: [],
     description: "Lakeside palaces, old-city lanes and rooftop dinners.",
   },
   {
@@ -208,7 +208,7 @@ export const TRIPS: Trip[] = [
     travel_note: "Flight to Dehradun + drive",
     available_weekends: ALL,
     tags: ["River rafting", "Bungee", "Ganga aarti"],
-    dealbreaker_conflicts: ["no_extreme_adventure", "no_long_travel"],
+    dealbreaker_conflicts: [],
     description: "White-water rafting and bungee by day, riverside evenings.",
   },
   {
@@ -234,7 +234,7 @@ export const TRIPS: Trip[] = [
     travel_note: "Overnight bus",
     available_weekends: ALL,
     tags: ["White-water rafting", "Kayaking", "Jungle stay"],
-    dealbreaker_conflicts: ["no_extreme_adventure"],
+    dealbreaker_conflicts: [],
     description: "River rafting and kayaking from a jungle base camp.",
   },
   {
@@ -247,7 +247,7 @@ export const TRIPS: Trip[] = [
     travel_note: "Flight + ferry",
     available_weekends: ["2026-11-13", "2026-11-27"],
     tags: ["Scuba diving", "Clear water", "Island beaches"],
-    dealbreaker_conflicts: ["no_expensive", "no_long_travel"],
+    dealbreaker_conflicts: ["no_expensive"],
     description: "Clear water, reef dives and island beaches: a bigger trip.",
   },
   {

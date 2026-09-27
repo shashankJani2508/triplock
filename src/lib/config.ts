@@ -82,18 +82,6 @@ export const DEALBREAKERS = [
     ruledOut: "nightlife-heavy plans",
   },
   {
-    id: "no_long_travel",
-    label: "No very long travel",
-    detail: "Removes trips with most of a day in transit each way",
-    ruledOut: "very long travel",
-  },
-  {
-    id: "no_extreme_adventure",
-    label: "No extreme adventure",
-    detail: "Removes rafting, bungee and similar",
-    ruledOut: "extreme adventure",
-  },
-  {
     id: "no_expensive",
     label: "No very expensive trip",
     detail: "Removes trips at ₹20,000+ per person",
@@ -108,7 +96,9 @@ export const DEALBREAKER_IDS = DEALBREAKERS.map((d) => d.id) as [DealbreakerId, 
 // Deadlines
 // ---------------------------------------------------------------------------
 
-/** How far ahead a new trip's deadline may be set. */
+/** Preferences close this long after a trip is started. */
+export const DEADLINE_HOURS = 24;
+/** How far ahead a custom deadline may be set through the API. */
 export const MAX_DEADLINE_DAYS = 14;
 /** Extension granted when a deadline passes before everyone submitted. */
 export const DEADLINE_EXTENSION_HOURS = 24;

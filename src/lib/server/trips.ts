@@ -3,6 +3,7 @@ import { TRAVEL_LABELS, findTrip } from "@/lib/catalog";
 import {
   BUDGET_BANDS,
   DEADLINE_EXTENSION_HOURS,
+  DEADLINE_HOURS,
   DEFAULT_PARTICIPANTS,
   MAX_DEADLINE_DAYS,
   WEEKENDS,
@@ -132,8 +133,8 @@ export async function createTrip(body: unknown): Promise<string> {
   const parsed = createTripSchema.safeParse(body);
   if (!parsed.success) fail("invalid_input");
 
-  const deadline = Date.parse(parsed.data.deadline);
   const now = Date.now();
+  const deadline = parsed.data.deadline ? Date.parse(parsed.data.deadline) : now + DEADLINE_HOURS * 3_600_000;
   if (deadline < now + 60_000 || deadline > now + MAX_DEADLINE_DAYS * 86_400_000) fail("invalid_deadline");
 
   return withStore((s) =>
