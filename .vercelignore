@@ -1,0 +1,6 @@
+# Local-only files that should never be uploaded to Vercel
+.data
+.claude
+.env
+.env.*
+!.env.example
