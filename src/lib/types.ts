@@ -138,7 +138,10 @@ export interface TripDecision {
 export interface TripView {
   id: string;
   name: string;
+  /** Deadline to display (rolling 24h in demo mode; see DEMO_ROLLING_DEADLINE). */
   deadline: string;
+  /** True when the shown countdown is the demo's rolling one (the trip won't really close). */
+  demoDeadline: boolean;
   createdAt: string;
   lockedAt: string | null;
   phase: TripPhase;

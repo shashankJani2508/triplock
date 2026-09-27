@@ -2,12 +2,22 @@
 
 import { useState } from "react";
 import { Check, Hourglass, Link2, Timer } from "lucide-react";
-import { formatCountdown, formatDeadline } from "@/lib/format";
+import { formatCountdown } from "@/lib/format";
 import type { TripPhase, TripView } from "@/lib/types";
 import { Avatar, Button, Pill, cx } from "./ui";
 
 /** Prominent deadline block. `now` is the skew-corrected clock (0 before hydration). */
-export function DeadlineCard({ deadline, now, phase }: { deadline: string; now: number; phase: TripPhase }) {
+export function DeadlineCard({
+  deadline,
+  now,
+  phase,
+  demo = false,
+}: {
+  deadline: string;
+  now: number;
+  phase: TripPhase;
+  demo?: boolean;
+}) {
   const remaining = Date.parse(deadline) - now;
   const closed = phase === "expired";
   const soon = !closed && now > 0 && remaining < 3_600_000;
@@ -38,13 +48,15 @@ export function DeadlineCard({ deadline, now, phase }: { deadline: string; now: 
         >
           {closed ? "Closed" : now === 0 ? " " : formatCountdown(remaining)}
         </p>
-      </div>
-      <div className="text-right">
-        <p className="text-sm text-muted">Deadline</p>
-        <p className="text-sm font-medium text-ink">{now === 0 ? " " : formatDeadline(deadline, now)}</p>
+        {demo && !closed && <DemoNote />}
       </div>
     </div>
   );
+}
+
+/** Tiny disclaimer shown while the demo's rolling deadline is active. */
+export function DemoNote() {
+  return <p className="mt-1 text-[11px] leading-tight text-muted">(It&apos;s a demo, so it won&apos;t actually close after 24 hours. Intentionally kept for demo purposes.)</p>;
 }
 
 export function CopyInviteLink({ tripId }: { tripId: string }) {

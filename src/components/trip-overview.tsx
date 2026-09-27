@@ -69,7 +69,7 @@ export function TripOverview({ initial }: { initial: TripView }) {
           </Card>
         ) : (
           <>
-            <DeadlineCard deadline={view.deadline} now={serverNow} phase={phase} />
+            <DeadlineCard deadline={view.deadline} now={serverNow} phase={phase} demo={view.demoDeadline} />
             {phase === "expired" ? (
               <Card className="p-5 sm:p-6">
                 <p className="font-medium">

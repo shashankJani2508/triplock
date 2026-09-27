@@ -72,7 +72,7 @@ export function StatusBoard({ initial }: { initial: TripView }) {
 
       {!locked && (
         <div className="mt-6 animate-fade-up [animation-delay:60ms]">
-          <DeadlineCard deadline={view.deadline} now={serverNow} phase={phase} />
+          <DeadlineCard deadline={view.deadline} now={serverNow} phase={phase} demo={view.demoDeadline} />
         </div>
       )}
 

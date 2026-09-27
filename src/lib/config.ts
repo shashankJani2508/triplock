@@ -98,6 +98,14 @@ export const DEALBREAKER_IDS = DEALBREAKERS.map((d) => d.id) as [DealbreakerId, 
 
 /** Preferences close this long after a trip is started. */
 export const DEADLINE_HOURS = 24;
+/**
+ * Demo mode: whenever someone opens a trip it shows "closes in 24 hours", but
+ * trips don't actually close, so a reviewer can walk the whole flow at any
+ * time. The deadline is still enforced; it's just DEMO_DEADLINE_DAYS away.
+ * Set to false for real use: trips then close DEADLINE_HOURS after they start.
+ */
+export const DEMO_ROLLING_DEADLINE = true;
+export const DEMO_DEADLINE_DAYS = 365;
 /** How far ahead a custom deadline may be set through the API. */
 export const MAX_DEADLINE_DAYS = 14;
 /** Extension granted when a deadline passes before everyone submitted. */

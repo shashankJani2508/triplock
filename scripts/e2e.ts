@@ -8,6 +8,7 @@
  * Creates real trips on the target (they're harmless, but they are real rows).
  */
 import { TRIPS } from "../src/lib/catalog";
+import { DEMO_ROLLING_DEADLINE } from "../src/lib/config";
 import type { TripView } from "../src/lib/types";
 import { DEMO_PREFERENCES } from "../tests/fixtures";
 
@@ -63,7 +64,16 @@ async function main() {
   const plain = await call("POST", "/api/groups", {});
   const plainView = (await call("GET", `/api/groups/${(plain.json as unknown as { id: string }).id}`)).json;
   const hoursLeft = (Date.parse(plainView.deadline) - Date.now()) / 3_600_000;
-  check(plain.status === 201 && hoursLeft > 23.9 && hoursLeft <= 24, `new trip closes in 24 hours (${hoursLeft.toFixed(2)}h)`);
+  // Within a minute of 24h: allows for clock differences between this machine and the server.
+  check(plain.status === 201 && Math.abs(hoursLeft - 24) < 1 / 60, `new trip closes in 24 hours (${hoursLeft.toFixed(2)}h)`);
+  if (DEMO_ROLLING_DEADLINE) {
+    await new Promise((r) => setTimeout(r, 2500));
+    const later = (await call("GET", `/api/groups/${plainView.id}`)).json;
+    check(
+      Date.parse(later.deadline) > Date.parse(plainView.deadline) && later.phase === "collecting",
+      "demo mode: always shows 24 hours left and never closes",
+    );
+  }
 
   // ---------------------------------------------------------------- Scenario A
   console.log("\nScenario A — all five submit normally");

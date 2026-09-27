@@ -11,26 +11,6 @@ export function formatCountdown(ms: number): string {
   return `${s}s`;
 }
 
-function startOfDay(ms: number): number {
-  const d = new Date(ms);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
-/** "Sunday, 11:59 PM" in the viewer's timezone; "Today"/"Tomorrow" when close. */
-export function formatDeadline(iso: string, nowMs: number): string {
-  const date = new Date(iso);
-  const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date);
-  const dayDiff = Math.round((startOfDay(date.getTime()) - startOfDay(nowMs)) / 86_400_000);
-  if (dayDiff === 0) return `Today, ${time}`;
-  if (dayDiff === 1) return `Tomorrow, ${time}`;
-  if (dayDiff > 1 && dayDiff < 7) {
-    return `${new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(date)}, ${time}`;
-  }
-  const day = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" }).format(date);
-  return `${day}, ${time}`;
-}
-
 export function plural(n: number, one: string, many = `${one}s`): string {
   return n === 1 ? one : many;
 }

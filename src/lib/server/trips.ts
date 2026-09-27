@@ -5,6 +5,8 @@ import {
   DEADLINE_EXTENSION_HOURS,
   DEADLINE_HOURS,
   DEFAULT_PARTICIPANTS,
+  DEMO_DEADLINE_DAYS,
+  DEMO_ROLLING_DEADLINE,
   MAX_DEADLINE_DAYS,
   WEEKENDS,
 } from "@/lib/config";
@@ -94,13 +96,24 @@ function buildDecision(group: GroupRecord): TripDecision | null {
   };
 }
 
+/**
+ * The deadline to show. In demo mode it's a rolling "24 hours from now", but
+ * never later than the real one, so a trip that will truly close says so.
+ */
+function shownDeadline(stored: string, now: number): string {
+  const real = Date.parse(stored);
+  if (!DEMO_ROLLING_DEADLINE) return new Date(real).toISOString();
+  return new Date(Math.min(real, now + DEADLINE_HOURS * 3_600_000)).toISOString();
+}
+
 export function buildView({ group, participants, submissions }: GroupSnapshot, now = Date.now()): TripView {
   const submitted = new Set(submissions.map((s) => s.participant_id));
   const matched = group.status !== "open" && submissions.length > 0;
   return {
     id: group.id,
     name: group.name,
-    deadline: new Date(group.deadline).toISOString(),
+    deadline: shownDeadline(group.deadline, now),
+    demoDeadline: DEMO_ROLLING_DEADLINE && Date.parse(group.deadline) > now + DEADLINE_HOURS * 3_600_000,
     createdAt: group.created_at,
     lockedAt: group.locked_at,
     phase: derivePhase(group.status, group.deadline, now),
@@ -134,8 +147,13 @@ export async function createTrip(body: unknown): Promise<string> {
   if (!parsed.success) fail("invalid_input");
 
   const now = Date.now();
-  const deadline = parsed.data.deadline ? Date.parse(parsed.data.deadline) : now + DEADLINE_HOURS * 3_600_000;
-  if (deadline < now + 60_000 || deadline > now + MAX_DEADLINE_DAYS * 86_400_000) fail("invalid_deadline");
+  const defaultDeadline = DEMO_ROLLING_DEADLINE
+    ? now + DEMO_DEADLINE_DAYS * 86_400_000
+    : now + DEADLINE_HOURS * 3_600_000;
+  const deadline = parsed.data.deadline ? Date.parse(parsed.data.deadline) : defaultDeadline;
+  if (parsed.data.deadline && (deadline < now + 60_000 || deadline > now + MAX_DEADLINE_DAYS * 86_400_000)) {
+    fail("invalid_deadline");
+  }
 
   return withStore((s) =>
     s.createGroup({

@@ -27,7 +27,8 @@ It is not a travel marketplace, booking platform or AI planner. It turns five pe
 - **No raw answers are ever shown.** The API only returns names plus a submitted/waiting flag. The matching engine receives anonymous preference arrays with no names, so its output *can't* attribute answers to people.
 - **Dealbreakers are vetoes, not negative scores.** One "No trekking" removes every trek-based trip, however much the other four like it.
 - **No fake precision.** Options are labelled *Strong group fit / Good group fit / Some compromise*, never "87.43%". Near-equal options are shown side by side and marked as an even match.
-- **The deadline is real.** Preferences close 24 hours after a trip is started, and the server rejects submissions after that. If it passes before everyone submits, the group can explicitly reopen collection for 24 hours; existing submissions stay locked.
+- **The deadline is real.** Preferences close 24 hours after a trip is started, and the server rejects submissions after that.
+- **Demo mode (on by default).** For grading, `DEMO_ROLLING_DEADLINE` in `src/lib/config.ts` makes every trip always show "closes in 24 hours" without ever actually closing (the enforced deadline is a year away), so a reviewer can walk the whole flow whenever they open it. No deadline date is shown. Set it to `false` to restore the real 24-hour close. If it passes before everyone submits, the group can explicitly reopen collection for 24 hours; existing submissions stay locked.
 
 ### Assumptions (easy to change in `src/lib/config.ts`)
 

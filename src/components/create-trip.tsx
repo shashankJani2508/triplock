@@ -3,22 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ArrowRight, LoaderCircle, Timer } from "lucide-react";
-import { DEADLINE_HOURS } from "@/lib/config";
+import { DEADLINE_HOURS, DEMO_ROLLING_DEADLINE } from "@/lib/config";
 import { api, ApiError } from "@/lib/client/api";
-import { useNow } from "@/lib/client/clock";
 import { storageKeys, useStored } from "@/lib/client/storage";
-import { formatDeadline } from "@/lib/format";
+import { DemoNote } from "./trip-bits";
 import { Button, ButtonLink, Card } from "./ui";
 
 export function CreateTrip() {
   const router = useRouter();
-  const now = useNow();
   const lastTrip = useStored("local", storageKeys.lastTrip);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Preview only; the server sets the real deadline when the trip is created.
-  const closesAt = now === 0 ? null : new Date(now + DEADLINE_HOURS * 3_600_000).toISOString();
 
   async function start() {
     setBusy(true);
@@ -40,10 +35,8 @@ export function CreateTrip() {
         </span>
         <div className="min-w-0">
           <p className="font-medium">Preferences close in {DEADLINE_HOURS} hours</p>
-          <p className="mt-0.5 text-sm text-muted">
-            {closesAt ? `Deadline: ${formatDeadline(closesAt, now)}. ` : ""}
-            When all five are in, answers lock automatically.
-          </p>
+          <p className="mt-0.5 text-sm text-muted">When all five are in, answers lock automatically.</p>
+          {DEMO_ROLLING_DEADLINE && <DemoNote />}
         </div>
       </div>
 
