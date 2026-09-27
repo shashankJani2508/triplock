@@ -56,7 +56,12 @@ export function DeadlineCard({
 
 /** Tiny disclaimer shown while the demo's rolling deadline is active. */
 export function DemoNote() {
-  return <p className="mt-1 text-[11px] leading-tight text-muted">(It&apos;s a demo, so it won&apos;t actually close after 24 hours. Intentionally kept for demo purposes.)</p>;
+  return (
+    <p className="mt-1 text-[11px] leading-tight text-muted">
+      (It&apos;s a demo, so it won&apos;t actually close after 24 hours. This arrangement is intentionally kept
+      for demo purposes.)
+    </p>
+  );
 }
 
 export function CopyInviteLink({ tripId }: { tripId: string }) {
