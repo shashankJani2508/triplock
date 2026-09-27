@@ -49,3 +49,7 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# helper docs added by `vercel integration add` (not part of the app)
+/.agents
+/skills-lock.json
