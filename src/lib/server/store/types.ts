@@ -64,7 +64,7 @@ export interface SubmitResult {
  * itself, so the service layer cannot accidentally bypass them.
  */
 export interface Store {
-  readonly kind: "supabase" | "file";
+  readonly kind: "supabase" | "postgres" | "file";
   createGroup(input: { name: string; deadline: string; participantNames: string[] }): Promise<string>;
   getSnapshot(groupId: string): Promise<GroupSnapshot | null>;
   /** Write-once. Locks the group when the last participant submits. */

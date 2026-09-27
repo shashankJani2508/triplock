@@ -31,11 +31,8 @@ export function SetupNotice() {
     <Shell>
       <Notice icon={<DatabaseZap className="size-5" aria-hidden />} title="Database not connected yet">
         <p>
-          Connect Supabase to this project in Vercel (Storage → Supabase), then redeploy. The tables are created
-          automatically during the build. For manual setup, set{" "}
-          <code className="font-mono text-sm">SUPABASE_URL</code> and{" "}
-          <code className="font-mono text-sm">SUPABASE_SERVICE_ROLE_KEY</code> and run{" "}
-          <code className="font-mono text-sm">supabase/schema.sql</code>.
+          Connect a database to this project in Vercel (Storage → Neon or Supabase), then redeploy. The tables
+          are created automatically during the build.
         </p>
       </Notice>
     </Shell>

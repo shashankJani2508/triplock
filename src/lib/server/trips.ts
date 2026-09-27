@@ -34,7 +34,7 @@ const ERRORS: Record<ServiceErrorCode, [status: number, message: string]> = {
   already_decided: [409, "Your group has already locked a decision."],
   decision_locked: [409, "Your group has already locked a decision."],
   not_expired: [409, "The deadline hasn't passed yet."],
-  storage_not_configured: [503, "Storage isn't configured. Add the Supabase environment variables."],
+  storage_not_configured: [503, "The database isn't connected yet. Connect Neon or Supabase in Vercel, then redeploy."],
 };
 
 export class ServiceError extends Error {

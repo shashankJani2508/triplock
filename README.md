@@ -59,18 +59,18 @@ The engine lives in `src/lib/matching.ts` and is a pure function: same input, sa
 ## Tech stack
 
 - **Next.js 16** (App Router, Turbopack), **React 19**, **TypeScript**, **Tailwind CSS 4**
-- **Supabase** (Postgres) for persistence, accessed only from the server
+- **Postgres** for persistence, via **Neon** (direct connection) or **Supabase**, accessed only from the server
 - **Vercel** for hosting
 - **Vitest** + **PGlite** (real Postgres in WASM) for tests
 
 ### Where the lock rules live
 
-The rules are enforced in the database (`supabase/schema.sql`), not just the UI:
+The rules are enforced in the database (`supabase/schema.sql`, plain Postgres that works on Neon and Supabase), not just the UI:
 
 - `submit_preferences()` inserts a submission and locks the group on the last one, in one transaction holding a row lock (no double submits under concurrency).
 - A trigger makes submissions **write-once**; another only lets a group move forward: `open → locked → decided`.
 - `decide_trip()` accepts the first decision only. Later calls fail.
-- Row Level Security is on with **no policies**: the public anon key can read nothing. Only the Next.js server, using the service-role key, can call the functions.
+- Row Level Security is on with **no policies**, and the functions aren't callable by `PUBLIC`. On Supabase the public anon key can read nothing; only the Next.js server can call the functions.
 
 ---
 
@@ -92,9 +92,9 @@ src/
     matching.ts                  Deterministic matching engine
     validation.ts                Request validation (zod)
     server/trips.ts              Service layer: builds the privacy-safe public view
-    server/store/                Storage: Supabase (prod) and a JSON file (local dev)
+    server/store/                Storage: Postgres/Neon, Supabase, or a JSON file (local dev)
     client/                      Polling hook, clock, API client, browser storage
-supabase/schema.sql              Tables, lock triggers, functions, access control
+supabase/schema.sql              Tables, lock triggers, functions, access control (any Postgres)
 scripts/migrate.mjs              Applies schema.sql during `npm run build`
 scripts/e2e.ts                   End-to-end journey test against a running server
 tests/                           Engine tests + SQL tests (PGlite)
@@ -113,12 +113,12 @@ npm run dev
 
 Open http://localhost:3000. With no Supabase variables set, the app uses a local file store at `.data/triplock.json`, so it works immediately. Delete that file to reset.
 
-To run against Supabase locally, copy `.env.example` to `.env.local` and fill in `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+To run against a real database locally, copy `.env.example` to `.env.local` and set `DATABASE_URL` (Neon/Postgres) or the two Supabase variables, then run `npm run db:migrate` once.
 
 ## Tests
 
 ```bash
-npm test              # 25 unit + database tests (matching engine, SQL lock rules on real Postgres)
+npm test              # 26 unit + database tests (matching engine, SQL lock rules on real Postgres)
 npm run build && npm start
 npm run test:e2e      # full journey against http://localhost:3000 (Scenarios A–F + deadline, ~90s)
 ```
@@ -129,19 +129,22 @@ Point the end-to-end test at a deployment with `BASE_URL=https://your-app.vercel
 
 ## Environment variables
 
+Storage is picked automatically: **Supabase** if its two variables are set, otherwise **Postgres** (Neon) if a connection string is set, otherwise the local file (development only).
+
 | Variable | Where | Purpose |
 | --- | --- | --- |
+| `DATABASE_URL` or `POSTGRES_URL` | Server, secret | Postgres connection string (Neon sets these automatically) |
+| `DATABASE_URL_UNPOOLED` / `POSTGRES_URL_NON_POOLING` | Build, secret | Optional direct connection, preferred for applying the schema |
 | `SUPABASE_URL` | Server | Supabase project URL (`NEXT_PUBLIC_SUPABASE_URL` is also accepted) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server, secret | Server-only key (`SUPABASE_SECRET_KEY` is also accepted) |
-| `POSTGRES_URL_NON_POOLING` / `POSTGRES_URL` / `DATABASE_URL` | Build, secret | Optional. When present, the build applies `supabase/schema.sql` automatically |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server, secret | Server-only Supabase key (`SUPABASE_SECRET_KEY` is also accepted) |
 
-No variable is exposed to the browser.
+No variable is exposed to the browser. Whenever a Postgres connection string is present, `npm run build` applies `supabase/schema.sql` first, so a deploy never runs against missing tables.
 
 ## Database setup
 
-**Option A: automatic (recommended on Vercel).** In the Vercel project, open **Storage → Create/Connect → Supabase** and connect it to the project. Redeploy. The build applies the schema automatically using the connection string the integration provides.
+**Option A: Neon via Vercel (recommended).** In the Vercel project, open **Storage → Create Database → Neon**, pick the Free plan and connect it to the project (all environments). Redeploy. The build creates the tables automatically.
 
-**Option B: manual.** Create a project at supabase.com. Open **SQL Editor**, paste the contents of `supabase/schema.sql` and run it (it's safe to re-run). Then set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from **Project Settings → API**.
+**Option B: Supabase.** Either connect it the same way (**Storage → Supabase**), or create a project at supabase.com, paste `supabase/schema.sql` into the **SQL Editor** and run it, then set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from **Project Settings → API**.
 
 ## Deploy to Vercel
 
@@ -150,4 +153,4 @@ vercel link          # or import the GitHub repo at vercel.com/new
 vercel deploy --prod
 ```
 
-Then connect Supabase (above) and redeploy. Without a database, the deployed site shows a "Database not connected yet" notice instead of failing silently. Serverless functions have no durable disk, so the local file store is deliberately disabled on Vercel.
+Set the project's framework preset to **Next.js** if Vercel doesn't detect it. Then connect a database (above) and redeploy. Without a database, the deployed site shows a "Database not connected yet" notice instead of failing silently. Serverless functions have no durable disk, so the local file store is deliberately disabled on Vercel.

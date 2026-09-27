@@ -185,6 +185,34 @@ describe("supabase/schema.sql", () => {
     expect(missing.rows[0].s).toBeNull();
   });
 
+  it("installs on plain Postgres without Supabase roles (e.g. Neon)", async () => {
+    const plain = new PGlite();
+    await plain.exec(schema);
+    await plain.exec(schema); // idempotent there too
+    const { rows } = await plain.query<{ id: string }>(
+      "select public.create_group('Neon trip', now() + interval '1 day', $1) as id",
+      [[...DEFAULT_PARTICIPANTS]],
+    );
+    const people = await plain.query<{ id: string }>(
+      "select id from public.participants where group_id = $1 order by position",
+      [rows[0].id],
+    );
+    for (const p of people.rows) {
+      await plain.query("select public.submit_preferences($1, $2, '10k_15k', $3, $4, $5)", [
+        rows[0].id,
+        p.id,
+        ["2026-11-13"],
+        ["beach"],
+        [],
+      ]);
+    }
+    const status = await plain.query<{ status: string }>("select status from public.groups where id = $1", [
+      rows[0].id,
+    ]);
+    expect(status.rows[0].status).toBe("locked");
+    await plain.close();
+  });
+
   it("rejects a participant from another group", async () => {
     const a = await newGroup();
     const b = await newGroup();

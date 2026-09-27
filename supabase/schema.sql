@@ -1,12 +1,13 @@
 -- =============================================================================
--- TripLock — Supabase schema
+-- TripLock — database schema (Postgres: Neon, Supabase, or any Postgres 14+)
 --
--- Run once in the Supabase SQL editor (Dashboard → SQL Editor → New query).
+-- Applied automatically by `npm run build` when a Postgres URL is set
+-- (scripts/migrate.mjs). Can also be pasted into the Supabase SQL editor.
 -- Safe to re-run: tables use IF NOT EXISTS and functions use CREATE OR REPLACE.
 --
--- Security model: the browser never talks to Supabase. Only the Next.js server
--- does, using the service-role (secret) key. Row Level Security is enabled with
--- no policies, so the public anon key can read or write nothing.
+-- Security model: the browser never talks to the database. Only the Next.js
+-- server does. Row Level Security is enabled with no policies; on Supabase the
+-- public anon key can read or write nothing.
 --
 -- Lock rules live here, not just in the UI:
 --   * a submission is write-once (updates are rejected by trigger)
@@ -335,24 +336,42 @@ $$;
 alter table public.groups                 enable row level security;
 alter table public.participants           enable row level security;
 alter table public.preference_submissions enable row level security;
--- (No policies on purpose: anon / authenticated get no access.)
+-- (No policies on purpose: only the owner / service role can touch the data.)
 
-revoke all on table public.groups, public.participants, public.preference_submissions
-  from anon, authenticated;
-grant all on table public.groups, public.participants, public.preference_submissions
-  to service_role;
+-- Nobody but the owner may call the operations directly.
+revoke all on function public.create_group(text, timestamptz, text[]) from public;
+revoke all on function public.get_group_snapshot(uuid) from public;
+revoke all on function public.submit_preferences(uuid, uuid, text, text[], text[], text[]) from public;
+revoke all on function public.decide_trip(uuid, text, text) from public;
+revoke all on function public.extend_deadline(uuid, int) from public;
 
-revoke all on function public.create_group(text, timestamptz, text[]) from public, anon, authenticated;
-revoke all on function public.get_group_snapshot(uuid) from public, anon, authenticated;
-revoke all on function public.submit_preferences(uuid, uuid, text, text[], text[], text[]) from public, anon, authenticated;
-revoke all on function public.decide_trip(uuid, text, text) from public, anon, authenticated;
-revoke all on function public.extend_deadline(uuid, int) from public, anon, authenticated;
+-- Supabase only: its public API roles get nothing; the server's service role
+-- gets everything. Skipped on plain Postgres (e.g. Neon), where the app
+-- connects as the owner and these roles don't exist.
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon')
+     and exists (select 1 from pg_roles where rolname = 'authenticated')
+     and exists (select 1 from pg_roles where rolname = 'service_role') then
+    revoke all on table public.groups, public.participants, public.preference_submissions
+      from anon, authenticated;
+    grant all on table public.groups, public.participants, public.preference_submissions
+      to service_role;
 
-grant execute on function public.create_group(text, timestamptz, text[]) to service_role;
-grant execute on function public.get_group_snapshot(uuid) to service_role;
-grant execute on function public.submit_preferences(uuid, uuid, text, text[], text[], text[]) to service_role;
-grant execute on function public.decide_trip(uuid, text, text) to service_role;
-grant execute on function public.extend_deadline(uuid, int) to service_role;
+    revoke all on function public.create_group(text, timestamptz, text[]) from anon, authenticated;
+    revoke all on function public.get_group_snapshot(uuid) from anon, authenticated;
+    revoke all on function public.submit_preferences(uuid, uuid, text, text[], text[], text[]) from anon, authenticated;
+    revoke all on function public.decide_trip(uuid, text, text) from anon, authenticated;
+    revoke all on function public.extend_deadline(uuid, int) from anon, authenticated;
 
--- Ask the Supabase API layer to pick up the new functions immediately.
+    grant execute on function public.create_group(text, timestamptz, text[]) to service_role;
+    grant execute on function public.get_group_snapshot(uuid) to service_role;
+    grant execute on function public.submit_preferences(uuid, uuid, text, text[], text[], text[]) to service_role;
+    grant execute on function public.decide_trip(uuid, text, text) to service_role;
+    grant execute on function public.extend_deadline(uuid, int) to service_role;
+  end if;
+end
+$$;
+
+-- Ask Supabase's API layer to pick up the functions immediately (a no-op elsewhere).
 notify pgrst, 'reload schema';
