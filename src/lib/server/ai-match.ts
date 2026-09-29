@@ -118,6 +118,10 @@ function describePerson(p: PreferenceInput, i: number): string {
 
 function buildPrompt(prefs: PreferenceInput[]): string {
   const weekends = WEEKENDS.map((w) => `${w.id} = ${w.longLabel} (Fri–Sun)`).join("; ");
+  const availability = WEEKENDS.map((w) => {
+    const free = prefs.flatMap((p, i) => (p.free_weekends.includes(w.id) ? [`Person ${i + 1}`] : []));
+    return `- ${w.id} (${w.longLabel}): ${free.length} of ${prefs.length} free${free.length ? ` (${free.join(", ")})` : ""}`;
+  });
   return [
     `You are the matching engine for TripLock, a tool that helps a group of ${prefs.length} friends in India agree on one weekend trip.`,
     "Choose the 2–3 best trip options for the group as a whole. Destinations can be anywhere in India, not only the south.",
@@ -133,6 +137,9 @@ function buildPrompt(prefs: PreferenceInput[]): string {
     "8. Plain, friendly language. No percentages or scores.",
     "",
     `Weekends: ${weekends}.`,
+    "",
+    "Who is free each weekend (these are facts; do not contradict them):",
+    ...availability,
     "",
     "People:",
     ...prefs.map(describePerson),
@@ -200,9 +207,19 @@ export async function aiMatch(prefs: PreferenceInput[], labels: string[]): Promi
     return null;
   }
 
-  // Safety net: drop anything the model itself flags as hitting a dealbreaker.
-  const picks = parsed.data.options.filter((o) => o.dealbreakersTriggered.length === 0);
+  // Fact-check against the answers themselves. Dates are known, so a trip most
+  // of the group can't make is dropped, whatever the model claims.
+  const N = prefs.length;
+  const needed = N - (N >= 4 ? 1 : 0);
+  const freeOn = (weekendId: string) => prefs.map((p) => (p.free_weekends as string[]).includes(weekendId));
+  const picks = parsed.data.options.filter(
+    (o) => o.dealbreakersTriggered.length === 0 && freeOn(o.weekendId).filter(Boolean).length >= needed,
+  );
   if (picks.length === 0) return null;
+
+  // The model refers to people as "Person N"; show their names instead.
+  const named = (value: string) =>
+    value.replace(/\bperson\s*(\d+)\b/gi, (match, n: string) => labels[Number(n) - 1] ?? match);
 
   const usedIds = new Set<string>();
   const letters = ["A", "B", "C"];
@@ -212,7 +229,13 @@ export async function aiMatch(prefs: PreferenceInput[], labels: string[]): Promi
     usedIds.add(tripId);
     const wk = weekend(o.weekendId);
     const byPerson = new Map(o.people.map((p) => [p.person, p]));
-    const compromise = tidyCompromise(o.compromise);
+    const free = freeOn(o.weekendId);
+    const everyoneFree = free.every(Boolean);
+    let compromise = named(tidyCompromise(o.compromise));
+    if (!everyoneFree && !/date|weekend|free|plans|available/i.test(compromise)) {
+      compromise = `one of you would need to move plans for ${wk.label}${compromise ? `; ${compromise}` : ""}`;
+    }
+    const place = o.state && o.state.toLowerCase() !== o.destination.toLowerCase() ? o.state : "";
     const types = o.tripTypes.filter((t): t is (typeof DESTINATION_TYPE_IDS)[number] =>
       (DESTINATION_TYPE_IDS as readonly string[]).includes(t),
     );
@@ -220,22 +243,31 @@ export async function aiMatch(prefs: PreferenceInput[], labels: string[]): Promi
       letter: letters[i],
       tripId,
       destination: o.destination,
-      description: o.state ? `${o.description} (${o.state})` : o.description,
+      description: named(place ? `${o.description} (${place})` : o.description),
       tags: o.tags.filter(Boolean).slice(0, 4),
       typeLabels: types.map((t) => destinationType(t).label),
       costLabel: `${o.estimatedCostPerPerson} per person`,
       travelLabel: o.travel,
       weekendId: wk.id,
       weekendLabel: wk.longLabel,
-      tier: o.fit,
-      tierLabel: TIER_LABELS[o.fit],
-      highlights: o.highlights.slice(0, 4),
+      // Someone missing the weekend is a real compromise, never a "strong" fit.
+      tier: everyoneFree ? o.fit : "compromise",
+      tierLabel: TIER_LABELS[everyoneFree ? o.fit : "compromise"],
+      highlights: (() => {
+        const kept = o.highlights
+          .map(named)
+          .filter((h) => everyoneFree || !/everyone|all (five|5)|four out of five|4 of 5/i.test(h))
+          .slice(0, 4);
+        const freeCount = free.filter(Boolean).length;
+        return kept.length > 0 ? kept : [`${freeCount} of ${N} of you are free ${wk.longLabel}`];
+      })(),
       compromises: compromise ? [compromise] : [],
       evenWith: [],
       people: labels.map((name, idx) => {
+        if (!free[idx]) return { name, standing: "stretch" as const, note: `Not free on ${wk.label}` };
         const p = byPerson.get(idx + 1);
         return p
-          ? { name, standing: p.standing, note: p.note }
+          ? { name, standing: p.standing, note: named(p.note) }
           : { name, standing: "okay" as const, note: "No specific note from the matcher" };
       }),
     };
